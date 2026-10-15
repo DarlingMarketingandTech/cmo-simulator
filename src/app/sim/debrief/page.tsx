@@ -27,16 +27,15 @@ import {
   type SimAuthSession,
 } from '@/lib/simAuth';
 import { buildDebriefProfileHint } from '@/lib/debriefPersonalization';
+import { exportSimulationScorecardImage } from '@/lib/scorecardImage';
 import { saveSimulationSnapshot } from '@/lib/saveSimulationSnapshot';
 import { buildSimulationDebriefReport } from '@/lib/simulationReport';
 import { recordSimulationEvent } from '@/lib/simulationTelemetry';
 
 /**
- * Debrief route sits behind `src/app/sim/layout.tsx`, which already requires a Supabase user (`getUser` on the server).
- *
- * `authSession` here is the browser client's `getSession()` snapshot — it can be briefly empty during hydration even though the layout gate passed.
- * Dismiss panel copy refers to skipping **explicit unlock/sign-up UX**, not being anonymous on `/sim`.
- * Authoritative save identity still flows through `getSimAuthSession()` inside `saveSimulationSnapshot` and matches POST `/api/simulations/save` checks.
+ * Debrief runs in guest-first mode; account actions are unlocked only when needed.
+ * Authoritative save identity flows through `getSimAuthSession()` inside
+ * `saveSimulationSnapshot` and still matches POST `/api/simulations/save` checks.
  */
 export default function DebriefPage() {
   const router = useRouter();
@@ -53,6 +52,11 @@ export default function DebriefPage() {
   const [profileRow, setProfileRow] = useState<Record<string, unknown> | null>(null);
   const [showFullDebrief, setShowFullDebrief] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [shareAlias, setShareAlias] = useState('');
+  const [leaderboardOptIn, setLeaderboardOptIn] = useState(true);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isPublishingShare, setIsPublishingShare] = useState(false);
+  const [isExportingImage, setIsExportingImage] = useState(false);
   const scoreBreakdowns = buildSimulationScoreBreakdowns(context);
   const recommendations = deriveSimulationRecommendations(context, scoreBreakdowns);
   const overallScore = calculateOverallScore(context);
@@ -64,6 +68,9 @@ export default function DebriefPage() {
     void (async () => {
       const session = await getSimAuthSession();
       setAuthSession(session);
+      if (session?.email) {
+        setShareAlias(session.email.split('@')[0] || '');
+      }
     })();
   }, [completeDebrief]);
 
@@ -88,10 +95,45 @@ export default function DebriefPage() {
     return () => ac.abort();
   }, [authSession]);
 
+  useEffect(() => {
+    if (!authSession || !context.simulationId) {
+      setShareUrl(null);
+      return;
+    }
+
+    const ac = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch(`/api/simulations/share?runId=${encodeURIComponent(context.simulationId ?? '')}`, {
+          signal: ac.signal,
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (ac.signal.aborted) return;
+        const share = data?.share;
+        if (!share || share.is_public !== true || typeof share.share_slug !== 'string') {
+          setShareUrl(null);
+          return;
+        }
+        if (typeof share.alias === 'string' && share.alias.trim().length > 0) {
+          setShareAlias(share.alias);
+        }
+        if (typeof share.leaderboard_opt_in === 'boolean') {
+          setLeaderboardOptIn(share.leaderboard_opt_in);
+        }
+        setShareUrl(`${window.location.origin}/scorecard/${share.share_slug}`);
+      } catch {
+        if (!ac.signal.aborted) setShareUrl(null);
+      }
+    })();
+
+    return () => ac.abort();
+  }, [authSession, context.simulationId]);
+
   const requireAuth = async (): Promise<SimAuthSession | null> => {
     const session = await getSimAuthSession();
     if (!session) {
-      setStatusMessage('Sign in with your email to save this run or export the PDF briefing.');
+      setStatusMessage('Sign in with your email to save this run, export the PDF briefing, or compare against saved runs.');
       return null;
     }
     return session;
@@ -168,6 +210,19 @@ export default function DebriefPage() {
     }
   };
 
+  const ensureCompletedRunSaved = async (): Promise<boolean> => {
+    const result = await saveSimulationSnapshot(context, 'debrief', 'completed');
+    if (!result.ok || !result.persisted) {
+      setStatusMessage(
+        !result.persisted
+          ? 'Session not ready to save yet — refresh or retry save from the header.'
+          : 'Could not save this run. Check the save status in the header and try Retry.',
+      );
+      return false;
+    }
+    return true;
+  };
+
   const handleExportPDF = async () => {
     try {
       const session = await requireAuth();
@@ -193,18 +248,145 @@ export default function DebriefPage() {
     }
   };
 
+  const handleExportScorecardImage = async () => {
+    setIsExportingImage(true);
+    try {
+      await exportSimulationScorecardImage(context);
+      setStatusMessage('Scorecard image downloaded. Post it with your share URL for replay invites.');
+    } catch (error) {
+      logger.error('Error exporting scorecard image', error);
+      setStatusMessage('Failed to export scorecard image.');
+    } finally {
+      setIsExportingImage(false);
+    }
+  };
+
+  const handlePublishScorecard = async () => {
+    const session = await requireAuth();
+    if (!session) return;
+    if (!context.simulationId) {
+      setStatusMessage('Run ID missing. Restart this run and save once before publishing.');
+      return;
+    }
+    const alias = shareAlias.trim();
+    if (alias.length < 3 || alias.length > 32) {
+      setStatusMessage('Alias must be 3-32 characters.');
+      return;
+    }
+
+    setIsPublishingShare(true);
+    setStatusMessage(null);
+    try {
+      const saved = await ensureCompletedRunSaved();
+      if (!saved) return;
+
+      const response = await fetch('/api/simulations/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          runId: context.simulationId,
+          alias,
+          leaderboardOptIn,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatusMessage(typeof data?.error === 'string' ? data.error : 'Failed to publish scorecard.');
+        return;
+      }
+
+      const slug = typeof data?.share?.share_slug === 'string' ? data.share.share_slug : null;
+      const relativeUrl =
+        typeof data?.share?.share_url === 'string' && data.share.share_url.length > 0
+          ? data.share.share_url
+          : slug
+            ? `/scorecard/${slug}`
+            : null;
+
+      if (!relativeUrl) {
+        setStatusMessage('Scorecard published, but share link was unavailable. Retry once.');
+        return;
+      }
+
+      const absoluteUrl = `${window.location.origin}${relativeUrl}`;
+      setShareUrl(absoluteUrl);
+      setStatusMessage(
+        leaderboardOptIn
+          ? 'Public scorecard is live and added to the leaderboard.'
+          : 'Public scorecard is live. Leaderboard opt-in is off for this run.',
+      );
+    } catch (error) {
+      logger.error('Error publishing scorecard', error);
+      setStatusMessage('Failed to publish scorecard.');
+    } finally {
+      setIsPublishingShare(false);
+    }
+  };
+
+  const handleDisablePublicShare = async () => {
+    const session = await requireAuth();
+    if (!session) return;
+    if (!context.simulationId) {
+      setStatusMessage('Run ID missing. Nothing to disable.');
+      return;
+    }
+
+    setIsPublishingShare(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch('/api/simulations/share', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ runId: context.simulationId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatusMessage(typeof data?.error === 'string' ? data.error : 'Failed to disable public scorecard.');
+        return;
+      }
+      setShareUrl(null);
+      setLeaderboardOptIn(false);
+      setStatusMessage('Public scorecard disabled. Leaderboard entry removed.');
+    } catch (error) {
+      logger.error('Error disabling public scorecard', error);
+      setStatusMessage('Failed to disable public scorecard.');
+    } finally {
+      setIsPublishingShare(false);
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!shareUrl) {
+      setStatusMessage('Publish your scorecard first to generate a share link.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setStatusMessage('Share URL copied to clipboard.');
+    } catch (error) {
+      logger.error('Failed to copy share URL', error);
+      setStatusMessage('Could not copy link. Copy it manually from the field.');
+    }
+  };
+
+  const handleCompareRuns = async () => {
+    const session = await requireAuth();
+    if (!session) return;
+    router.push('/sim/simulations');
+  };
+
   const handleRestart = () => {
     restartSimulation();
     router.push('/sim/strategy');
   };
 
   const handleShare = () => {
-    // Implement share functionality
     if (navigator.share) {
-      navigator.share({
+      void navigator.share({
         title: 'CMO Simulation Results',
         text: 'Check out my marketing simulation results!',
-        url: window.location.href,
+        url: shareUrl ?? window.location.href,
       });
     }
   };
@@ -276,7 +458,7 @@ export default function DebriefPage() {
               className="rounded-xl border border-slate-200 bg-white px-5 py-3 font-semibold text-slate-700 hover:bg-slate-50"
               onClick={() => setActionsOpen(true)}
             >
-              Save / export / account
+              Save / share / account
             </button>
             <button
               type="button"
@@ -379,7 +561,7 @@ export default function DebriefPage() {
                     onClick={() => void handleSignIn()}
                     disabled={isSigningIn}
                   >
-                    {isSigningIn ? 'Working...' : 'Unlock Save/Export'}
+                    {isSigningIn ? 'Working...' : 'Unlock Save/Share'}
                   </button>
                 </div>
               </div>
@@ -389,18 +571,97 @@ export default function DebriefPage() {
                 type="button"
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                 onClick={() => void handleSaveRun()}
-                disabled={!authSession || isSaving}
+                disabled={isSaving}
               >
                 {isSaving ? 'Saving run…' : 'Save run to account'}
               </button>
               <button
                 type="button"
-                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left font-semibold text-slate-700 hover:bg-slate-50"
                 onClick={() => void handleExportPDF()}
-                disabled={!authSession}
               >
                 Export PDF briefing
               </button>
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left font-semibold text-slate-700 hover:bg-slate-50"
+                onClick={() => void handleCompareRuns()}
+              >
+                Compare against saved runs
+              </button>
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                onClick={() => void handleExportScorecardImage()}
+                disabled={isExportingImage}
+              >
+                {isExportingImage ? 'Exporting image…' : 'Export scorecard image (PNG)'}
+              </button>
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-left font-semibold text-slate-700 hover:bg-slate-50"
+                onClick={() => router.push('/sim/leaderboard')}
+              >
+                Open public leaderboard
+              </button>
+            </div>
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Public scorecard share</h3>
+                <p className="mt-1 text-xs text-slate-600">
+                  Publish an alias-only scorecard URL. Opt in to include this run on the scenario/difficulty leaderboard.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <input
+                  name="share-alias"
+                  type="text"
+                  spellCheck={false}
+                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
+                  placeholder="Alias (3-32 chars)"
+                  value={shareAlias}
+                  onChange={(event) => setShareAlias(event.target.value)}
+                />
+                <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={leaderboardOptIn}
+                    onChange={(event) => setLeaderboardOptIn(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Include this run on leaderboard
+                </label>
+              </div>
+              {shareUrl ? (
+                <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                  {shareUrl}
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded-md bg-slate-900 px-3 py-2 font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                  onClick={() => void handlePublishScorecard()}
+                  disabled={isPublishingShare}
+                >
+                  {isPublishingShare ? 'Publishing…' : 'Publish scorecard URL'}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+                  onClick={() => void handleCopyShareLink()}
+                >
+                  Copy share link
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-rose-200 bg-white px-3 py-2 font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                  onClick={() => void handleDisablePublicShare()}
+                  disabled={isPublishingShare}
+                >
+                  Disable public share
+                </button>
+              </div>
             </div>
           </div>
         </MobileSheetContent>

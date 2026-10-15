@@ -20,7 +20,7 @@ This note maps **where truth lives** for the playable simulation. Product copy a
 | Concern | Authoritative source |
 |--------|----------------------|
 | XState provider, **local** persistence (`localStorage` key `cmo-sim-state-v2`), hydrate-on-mount | `src/components/simulation/SimulationProvider.tsx` |
-| Auth gate for `/sim/*` (server session required before rendering sim layout) | `src/app/sim/layout.tsx` |
+| Optional auth session for `/sim/*` (guest-first playthrough; account actions unlock on demand) | `src/app/sim/layout.tsx`, `src/app/sim/debrief/page.tsx` |
 | Phase-aligned autosave triggers from quarter pages | respective `src/app/sim/q*/page.tsx`, `setup/page.tsx`, header `SaveSyncStatus` |
 
 ## Types and scoring contracts
@@ -38,5 +38,6 @@ This note maps **where truth lives** for the playable simulation. Product copy a
 | Payload shape for rows + RPC | `src/lib/simulationPersistence.ts` (`PersistedRunPayload`, `toPersistedRunPayload`) |
 | POST handler, identity checks, RPC call | `src/app/api/simulations/save/route.ts` |
 | Browser retry + sync UI events | `src/lib/saveSimulationSnapshot.ts`, `src/lib/saveSimulationSync.ts` |
+| Public scorecard publish/unpublish + leaderboard feed | `src/app/api/simulations/share/route.ts`, `src/app/api/leaderboard/route.ts`, `src/app/api/scorecards/[slug]/route.ts` |
 
 When documentation disagrees with these files, **trust the code paths above** and update the docs.

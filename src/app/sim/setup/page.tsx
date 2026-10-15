@@ -325,6 +325,12 @@ export default function SetupPage() {
   }, [user]);
 
   useEffect(() => {
+    if (user) return;
+    setProfileLoadState('idle');
+    setProfileMessage('Profile memory is optional for guests. Sign in anytime to sync these answers across runs.');
+  }, [user]);
+
+  useEffect(() => {
     if (!user) return;
 
     let isMounted = true;
@@ -476,14 +482,19 @@ export default function SetupPage() {
         initialState as HydrationPatch,
       );
 
-      try {
-        await saveProfileMemory(runId);
-        setProfileMessage('Profile saved to your account — future runs will reuse these answers.');
-        setProfileLoadState('ready');
-      } catch (profileError) {
-        logger.error('Failed to save profile memory', profileError);
-        setProfileMessage('Profile could not be synced; strategy and quarters still work — sign in later to retry.');
-        setProfileLoadState('error');
+      if (user) {
+        try {
+          await saveProfileMemory(runId);
+          setProfileMessage('Profile saved to your account — future runs will reuse these answers.');
+          setProfileLoadState('ready');
+        } catch (profileError) {
+          logger.error('Failed to save profile memory', profileError);
+          setProfileMessage('Profile could not be synced; strategy and quarters still work — sign in later to retry.');
+          setProfileLoadState('error');
+        }
+      } else {
+        setProfileLoadState('idle');
+        setProfileMessage('Continuing as guest. Profile memory will sync after you sign in.');
       }
 
       localStorage.setItem('cmo-sim-state-v2', JSON.stringify(initialState));
@@ -669,7 +680,9 @@ export default function SetupPage() {
             </div>
             <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950">Anchor the run to a real decision-maker</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Stored with your account so future sessions and debriefs stay grounded in role, maturity, and stated goals — without changing how quarters execute.
+              {user
+                ? 'Stored with your account so future sessions and debriefs stay grounded in role, maturity, and stated goals — without changing how quarters execute.'
+                : 'Used immediately for this playthrough. Sign in later if you want these answers synced across future runs and debriefs.'}
             </p>
           </div>
           <div className="text-xs font-medium text-slate-500">
@@ -889,20 +902,20 @@ export default function SetupPage() {
 
                           <div className={cn('mt-5 grid grid-cols-2 gap-3 rounded-2xl border p-4', isSelected ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white')}>
                             <div>
-                              <div className={cn('text-[10px] font-semibold uppercase tracking-[0.18em]', isSelected ? 'text-slate-300' : 'text-slate-500')}>
+                              <div className={cn('text-[10px] font-semibold uppercase tracking-[0.18em]', isSelected ? 'text-slate-100' : 'text-slate-500')}>
                                 Budget
                               </div>
                               <div className="mt-1 text-lg font-semibold">{formatBudget(scenario.budget)}</div>
                             </div>
                             <div>
-                              <div className={cn('text-[10px] font-semibold uppercase tracking-[0.18em]', isSelected ? 'text-slate-300' : 'text-slate-500')}>
+                              <div className={cn('text-[10px] font-semibold uppercase tracking-[0.18em]', isSelected ? 'text-slate-100' : 'text-slate-500')}>
                                 Horizon
                               </div>
                               <div className="mt-1 text-lg font-semibold">{scenario.timeHorizon}</div>
                             </div>
                           </div>
 
-                          <div className={cn('mt-4 rounded-2xl border p-4 text-sm leading-6', isSelected ? 'border-amber-300/18 bg-amber-300/10 text-amber-50' : 'border-slate-200 bg-white text-slate-600')}>
+                          <div className={cn('mt-4 rounded-2xl border p-4 text-sm leading-6', isSelected ? 'border-amber-300/18 bg-amber-300/10 text-white' : 'border-slate-200 bg-white text-slate-600')}>
                             <div className={cn('text-[10px] font-semibold uppercase tracking-[0.18em]', isSelected ? 'text-amber-100' : 'text-slate-500')}>
                               Board mandate
                             </div>
