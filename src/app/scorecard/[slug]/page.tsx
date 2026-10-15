@@ -39,12 +39,11 @@ export default async function PublicScorecardPage({ params }: ScorecardPageProps
 
   const supabase = await createClient();
   const { data } = await supabase
-    .from("cmo_public_scorecards")
+    .from("cmo_public_scorecards_public")
     .select(
-      "alias, scenario_id, difficulty, overall_score, grade, revenue, profit, market_share, brand_awareness, customer_satisfaction, saved_at, is_public",
+      "alias, scenario_id, difficulty, overall_score, grade, revenue, profit, market_share, brand_awareness, customer_satisfaction, saved_at",
     )
     .eq("share_slug", slug)
-    .eq("is_public", true)
     .maybeSingle();
 
   if (!data) {

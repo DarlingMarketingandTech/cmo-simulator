@@ -33,6 +33,28 @@ CREATE INDEX IF NOT EXISTS idx_cmo_public_scorecards_leaderboard
 CREATE INDEX IF NOT EXISTS idx_cmo_public_scorecards_owner
   ON public.cmo_public_scorecards (owner_user_id, saved_at DESC);
 
+CREATE OR REPLACE VIEW public.cmo_public_scorecards_public
+WITH (security_invoker = true) AS
+SELECT
+  share_slug,
+  alias,
+  scenario_id,
+  difficulty,
+  overall_score,
+  grade,
+  revenue,
+  profit,
+  market_share,
+  brand_awareness,
+  customer_satisfaction,
+  saved_at,
+  leaderboard_opt_in,
+  is_public
+FROM public.cmo_public_scorecards
+WHERE is_public = true;
+
+GRANT SELECT ON public.cmo_public_scorecards_public TO anon, authenticated;
+
 DROP TRIGGER IF EXISTS trg_cmo_public_scorecards_updated_at ON public.cmo_public_scorecards;
 CREATE TRIGGER trg_cmo_public_scorecards_updated_at
   BEFORE UPDATE ON public.cmo_public_scorecards
@@ -46,6 +68,8 @@ DROP POLICY IF EXISTS "cmo_public_scorecards_select_own" ON public.cmo_public_sc
 DROP POLICY IF EXISTS "cmo_public_scorecards_insert_own" ON public.cmo_public_scorecards;
 DROP POLICY IF EXISTS "cmo_public_scorecards_update_own" ON public.cmo_public_scorecards;
 DROP POLICY IF EXISTS "cmo_public_scorecards_delete_own" ON public.cmo_public_scorecards;
+
+DROP POLICY IF EXISTS "cmo_public_scorecards_select_public" ON public.cmo_public_scorecards;
 
 CREATE POLICY "cmo_public_scorecards_select_public"
   ON public.cmo_public_scorecards

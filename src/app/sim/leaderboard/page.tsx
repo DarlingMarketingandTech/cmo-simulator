@@ -57,6 +57,11 @@ export default function LeaderboardPage() {
     [],
   );
 
+  const scenarioNameById = useMemo(
+    () => Object.fromEntries(SIMULATION_SCENARIOS.map((scenario) => [scenario.id, scenario.name])),
+    [],
+  );
+
   const loadLeaderboard = useCallback(
     async (signal?: AbortSignal) => {
       setError(null);
@@ -194,7 +199,7 @@ export default function LeaderboardPage() {
                         {row.alias}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{row.scenario_id}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{scenarioNameById[row.scenario_id] ?? row.scenario_id}</td>
                     <td className="px-4 py-3 text-sm text-slate-700">{difficultyLabel(row.difficulty)}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-slate-900">{row.overall_score}</td>
                     <td className="px-4 py-3 text-sm text-slate-700">{row.grade}</td>

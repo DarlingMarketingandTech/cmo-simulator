@@ -18,12 +18,11 @@ export async function GET(
 
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from("cmo_public_scorecards")
+      .from("cmo_public_scorecards_public")
       .select(
         "share_slug, alias, scenario_id, difficulty, overall_score, grade, revenue, profit, market_share, brand_awareness, customer_satisfaction, saved_at",
       )
       .eq("share_slug", slug)
-      .eq("is_public", true)
       .maybeSingle();
 
     if (error) {

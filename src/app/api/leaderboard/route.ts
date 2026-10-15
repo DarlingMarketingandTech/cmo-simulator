@@ -23,11 +23,10 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient();
     let query = supabase
-      .from("cmo_public_scorecards")
+      .from("cmo_public_scorecards_public")
       .select(
         "share_slug, alias, scenario_id, difficulty, overall_score, grade, revenue, profit, market_share, brand_awareness, customer_satisfaction, saved_at",
       )
-      .eq("is_public", true)
       .eq("leaderboard_opt_in", true)
       .order("overall_score", { ascending: false })
       .order("saved_at", { ascending: true })
