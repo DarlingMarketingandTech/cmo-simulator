@@ -101,11 +101,11 @@ export function assertProductionRuntimeEnv(): void {
   }
 }
 
-// Validate on module load (only in Node.js environment, not in browser)
-// Skip during build time for Cloudflare Pages compatibility
-if (typeof window === 'undefined') {
-  validateEnv();
-}
+/**
+ * Validate environment variables only when a caller explicitly opts in.
+ * Doing this at module load can fail in environments where variables are
+ * injected later (for example deployed previews or build-time bootstrapping).
+ */
 
 /**
  * Get environment variable with type safety
