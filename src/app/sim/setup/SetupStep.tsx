@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -288,6 +287,30 @@ function setupDataFromContext(context: SimulationContext): SetupData {
       conversionOptimization: typeof allocation?.conversionOptimization === 'number' ? allocation.conversionOptimization : EMPTY_SETUP_DATA.budgetAllocation.conversionOptimization,
     },
   };
+}
+
+function RecommendedDefaultButton({
+  applied,
+  onApply,
+}: {
+  applied: boolean;
+  onApply: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      aria-pressed={applied}
+      className={cn(
+        'focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2',
+        applied
+          ? 'border border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800'
+          : 'bg-slate-950 text-white hover:bg-slate-800',
+      )}
+      onClick={onApply}
+    >
+      {applied ? 'Using recommended default' : 'Use recommended default'}
+    </Button>
+  );
 }
 
 function contextHasStoredSetup(context: SimulationContext) {
@@ -804,7 +827,17 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
   }, [data.budgetAllocation]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
+      {stayOnPlay ? (
+        <p className="text-sm text-[#6b6b6b]">
+          {stepMeta.label}
+          <span className="ml-3 font-mono tabular-nums text-[#0a0a0a]">
+            {step} of {totalSteps}
+          </span>
+        </p>
+      ) : null}
+      {!stayOnPlay ? (
+      <>
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -1003,16 +1036,11 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
           </div>
         )}
       </section>
+      </>
+      ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_320px]">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.25 }}
-          >
+      <div className={stayOnPlay ? "max-w-2xl" : "grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_320px]"}>
+          <div key={step}>
             {step === 1 && (
               <Card className="overflow-hidden border-slate-200 bg-white shadow-sm">
                 <CardHeader className="border-b border-slate-200 bg-slate-50/80">
@@ -1024,13 +1052,10 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
                     <div className="text-sm font-semibold text-slate-900">Recommended: The Challenger Brand</div>
                     <p className="mt-2 text-sm text-slate-600">Balanced difficulty with a lean budget. Best default for first run-throughs.</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        className="bg-slate-950 text-white hover:bg-slate-800"
-                        onClick={() => commitScenarioAndAdvance('challenger')}
-                      >
-                        Use recommended default
-                      </Button>
+                      <RecommendedDefaultButton
+                        applied={data.scenarioId === 'challenger'}
+                        onApply={() => setData((current) => ({ ...current, scenarioId: 'challenger' }))}
+                      />
                       <Button type="button" variant="outline" className="border-slate-200" onClick={() => setShowAdvancedScenario((prev) => !prev)}>
                         {showAdvancedScenario ? 'Hide advanced choices' : 'Show advanced choices'}
                       </Button>
@@ -1117,16 +1142,10 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <div className="text-sm font-semibold text-slate-900">Recommended default name: Northstar Systems</div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        className="bg-slate-950 text-white hover:bg-slate-800"
-                        onClick={() => {
-                          setData((current) => ({ ...current, companyName: 'Northstar Systems' }));
-                          setShowAdvancedIdentity(true);
-                        }}
-                      >
-                        Use recommended default
-                      </Button>
+                      <RecommendedDefaultButton
+                        applied={data.companyName.trim() === 'Northstar Systems'}
+                        onApply={() => setData((current) => ({ ...current, companyName: 'Northstar Systems' }))}
+                      />
                       <Button type="button" variant="outline" className="border-slate-200" onClick={() => setShowAdvancedIdentity((prev) => !prev)}>
                         {showAdvancedIdentity ? 'Hide advanced choices' : 'Show advanced choices'}
                       </Button>
@@ -1199,18 +1218,19 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <div className="text-sm font-semibold text-slate-900">Recommended default split: 35% Brand / 40% Demand / 25% Conversion</div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        className="bg-slate-950 text-white hover:bg-slate-800"
-                        onClick={() =>
+                      <RecommendedDefaultButton
+                        applied={
+                          data.budgetAllocation.brandAwareness === 35
+                          && data.budgetAllocation.leadGeneration === 40
+                          && data.budgetAllocation.conversionOptimization === 25
+                        }
+                        onApply={() =>
                           setData((current) => ({
                             ...current,
                             budgetAllocation: { brandAwareness: 35, leadGeneration: 40, conversionOptimization: 25 },
                           }))
                         }
-                      >
-                        Use recommended default
-                      </Button>
+                      />
                       <Button type="button" variant="outline" className="border-slate-200" onClick={() => setShowAdvancedBudget((prev) => !prev)}>
                         {showAdvancedBudget ? 'Hide advanced choices' : 'Show advanced choices'}
                       </Button>
@@ -1335,10 +1355,9 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
                 </CardContent>
               </Card>
             )}
-          </motion.div>
-        </AnimatePresence>
+          </div>
 
-        <aside className="hidden space-y-5 xl:block">
+        {!stayOnPlay ? <aside className="hidden space-y-5 xl:block">
           <Card className="border-slate-200 bg-white shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg font-semibold tracking-tight text-slate-950">Conversation Summary</CardTitle>
@@ -1423,10 +1442,12 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
               )}
             </CardContent>
           </Card>
-        </aside>
+        </aside> : null}
       </div>
 
-      <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+88px)] z-30 flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white px-5 py-4 shadow-sm sm:static sm:flex-row sm:items-center sm:justify-between">
+      <div className={stayOnPlay
+        ? "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        : "sticky bottom-[calc(env(safe-area-inset-bottom)+88px)] z-30 flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white px-5 py-4 shadow-sm sm:static sm:flex-row sm:items-center sm:justify-between"}>
         <Button
           variant="ghost"
           onClick={handleBack}

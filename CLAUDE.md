@@ -14,7 +14,7 @@ Load the installed skill `cmo-simulation-scoring` at `C:\Users\hoosi\.agents\ski
 
 Change a number in this order: `processQuarterAdvance` in `src/lib/simMachine.ts`, then `src/engine/` or the wildcard and talent modules, then `buildSimulationScoreBreakdowns` in `src/lib/simulationIntelligence.ts`, then the review copy. Update [docs/SIMULATION_ENGINE_REFERENCE.md](docs/SIMULATION_ENGINE_REFERENCE.md) and the baseline snapshot in the same change.
 
-Do not widen the 65–67 baseline score band until Phase C of the roadmap.
+The fixed-plan overall score spans 46–67. Do not collapse that band without a new baseline snapshot.
 
 ## Visual work
 

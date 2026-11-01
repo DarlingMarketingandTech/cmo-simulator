@@ -65,6 +65,7 @@ rhombus-*.png
 
 # Local typecheck, lint, and agent scratch. Not part of the app.
 .superpowers/
+.taste-skill/
 tsc-output.txt
 typecheck_output.txt
 typecheck_report.txt

@@ -1,5 +1,5 @@
 import { createMachine, assign } from 'xstate';
-import { TalentCandidate, BigBetOption } from './talentMarket';
+import { TalentCandidate, BigBetOption, calculateTalentImpact } from './talentMarket';
 
 import { runSimulationTick, initializeSimulationState } from '../engine';
 import { SimulationState, Channel, PlayerInput, MarketConditions } from '../types/engine';
@@ -777,13 +777,6 @@ export const simulationMachine = createMachine({
             selectedBigBet: ({ event }) => event.bigBet,
             bigBetOutcome: ({ event }) => event.outcome,
             remainingBudget: ({ context, event }) => context.remainingBudget - event.bigBet.cost,
-            kpis: ({ context, event }) => ({
-              ...context.kpis,
-              revenue: context.kpis.revenue + event.outcome.actualImpact.revenue,
-              marketShare: Math.max(0, Math.min(100, context.kpis.marketShare + event.outcome.actualImpact.marketShare)),
-              brandAwareness: Math.max(0, Math.min(100, context.kpis.brandAwareness + event.outcome.actualImpact.brandAwareness)),
-              customerSatisfaction: Math.max(0, Math.min(100, context.kpis.customerSatisfaction + event.outcome.actualImpact.customerSatisfaction))
-            }),
             quarters: ({ context, event }) => ({
               ...context.quarters,
               Q3: {
@@ -912,13 +905,6 @@ export const simulationMachine = createMachine({
             selectedBigBet: ({ event }) => event.bigBet,
             bigBetOutcome: ({ event }) => event.outcome,
             remainingBudget: ({ context, event }) => context.remainingBudget - event.bigBet.cost,
-            kpis: ({ context, event }) => ({
-              ...context.kpis,
-              revenue: context.kpis.revenue + event.outcome.actualImpact.revenue,
-              marketShare: Math.max(0, Math.min(100, context.kpis.marketShare + event.outcome.actualImpact.marketShare)),
-              brandAwareness: Math.max(0, Math.min(100, context.kpis.brandAwareness + event.outcome.actualImpact.brandAwareness)),
-              customerSatisfaction: Math.max(0, Math.min(100, context.kpis.customerSatisfaction + event.outcome.actualImpact.customerSatisfaction))
-            }),
             quarters: ({ context, event }) => ({
               ...context.quarters,
               Q4: {
@@ -978,6 +964,29 @@ const categoryToChannelMap: Record<string, Channel[]> = {
   partnerships: ['pr', 'digital'],
 };
 
+function allocationShare(allocation: Record<string, number> | undefined, key: string, fallbackKey?: string): number {
+  const primary = allocation?.[key];
+  const fallback = fallbackKey ? allocation?.[fallbackKey] : undefined;
+  const value = typeof primary === "number" ? primary : typeof fallback === "number" ? fallback : 0;
+  return value > 0 ? value : 0;
+}
+
+/** Balanced 1/3 splits stay at 1. A heavier share raises that category's channel yield. */
+function budgetPostureMultiplier(category: string, allocation: Record<string, number> | undefined): number {
+  const brand = allocationShare(allocation, "brandAwareness");
+  const demand = allocationShare(allocation, "leadGeneration");
+  const conversion = allocationShare(allocation, "conversionOptimization", "customerRetention");
+  const total = brand + demand + conversion;
+  if (total <= 0) return 1;
+  const share =
+    category === "traditional" || category === "content"
+      ? brand / total
+      : category === "events"
+        ? conversion / total
+        : demand / total;
+  return 0.7 + share * 0.9;
+}
+
 // Helper functions for calculations
 export function processQuarterAdvance(
   context: SimulationContext,
@@ -1000,7 +1009,7 @@ export function processQuarterAdvance(
   quarter.tactics.forEach(tactic => {
     totalSpend += tactic.cost;
     const mappedChannels = categoryToChannelMap[tactic.category] || ['digital'];
-    const amountPerChannel = tactic.cost / mappedChannels.length;
+    const amountPerChannel = (tactic.cost * budgetPostureMultiplier(tactic.category, context.strategy.budgetAllocation)) / mappedChannels.length;
     mappedChannels.forEach(c => {
       channelBudgets[c as Channel] += amountPerChannel;
     });
@@ -1062,8 +1071,18 @@ export function processQuarterAdvance(
 
   // 5. Map Engine Output back to simple KPIs
   // The engine returns revenue (incrementalSales). We use that to boost our game KPIs.
-  const finalRevenue = newEngineState.results.incrementalSales + wildcardRevenueImpact;
-  const finalProfit = finalRevenue - totalSpend + wildcardProfitImpact;
+  const engineRevenue = newEngineState.results.incrementalSales + wildcardRevenueImpact;
+  const hiredThisQuarter = quarter.talentHired ?? [];
+  const talentRevenue = hiredThisQuarter.reduce(
+    (sum, candidate) => sum + calculateTalentImpact(candidate, Math.max(0, engineRevenue)),
+    0,
+  );
+  const talentCost = hiredThisQuarter.reduce((sum, candidate) => sum + (candidate.hiringCost || 0), 0);
+  const betImpact = quarter.bigBetMade && context.bigBetOutcome ? context.bigBetOutcome.actualImpact : null;
+  const betRevenue = betImpact?.revenue ?? 0;
+  const betCost = quarter.bigBetMade?.cost ?? 0;
+  const finalRevenue = engineRevenue + talentRevenue + betRevenue;
+  const finalProfit = engineRevenue - totalSpend + wildcardProfitImpact + talentRevenue + betRevenue - talentCost - betCost;
 
   // Use the engine's realistic traffic and synergy to boost the secondary KPIs
   const totalSynergyBonus = Object.values(newEngineState.results.channelRoi).reduce((a, b) => a + b, 0) > 0 ? 1.1 : 1.0; 
@@ -1078,11 +1097,11 @@ export function processQuarterAdvance(
 
   const newMarketShare = Math.max(
     0,
-    Math.min(100, currentKPIs.marketShare + adjustedMarketShareDelta + wildcardMarketShareImpact),
+    Math.min(100, currentKPIs.marketShare + adjustedMarketShareDelta + wildcardMarketShareImpact + (betImpact?.marketShare ?? 0)),
   );
   const newCustSat = Math.max(
     0,
-    Math.min(100, currentKPIs.customerSatisfaction + adjustedSatisfactionDelta + wildcardCustomerSatisfactionImpact),
+    Math.min(100, currentKPIs.customerSatisfaction + adjustedSatisfactionDelta + wildcardCustomerSatisfactionImpact + (betImpact?.customerSatisfaction ?? 0)),
   );
   
   // Brand awareness naturally maps to Adstock!
@@ -1094,7 +1113,10 @@ export function processQuarterAdvance(
 
   const newBrandAwareness = Math.max(
     0,
-    Math.min(100, currentKPIs.brandAwareness + adjustedAwarenessDelta + matchedAdstockBonus + wildcardBrandAwarenessImpact),
+    Math.min(
+      100,
+      currentKPIs.brandAwareness + adjustedAwarenessDelta + matchedAdstockBonus + wildcardBrandAwarenessImpact + (betImpact?.brandAwareness ?? 0),
+    ),
   );
 
   const newQuarterData: QuarterData = {

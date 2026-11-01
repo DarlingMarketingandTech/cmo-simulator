@@ -32,7 +32,7 @@ export const ENGINE_RUNTIME_TUNING: Record<DifficultyLevel, EngineDifficultyRunt
     dragSpan: 0.12,
     fatigueSensitivity: 0.035,
     fatigueClampMin: 0.88,
-    funnelEfficiencyScalar: 1.06,
+    funnelEfficiencyScalar: 1.28,
   },
   intermediate: {
     dragFloor: 0.78,
@@ -46,7 +46,7 @@ export const ENGINE_RUNTIME_TUNING: Record<DifficultyLevel, EngineDifficultyRunt
     dragSpan: 0.34,
     fatigueSensitivity: 0.08,
     fatigueClampMin: 0.74,
-    funnelEfficiencyScalar: 0.93,
+    funnelEfficiencyScalar: 0.72,
   },
 };
 

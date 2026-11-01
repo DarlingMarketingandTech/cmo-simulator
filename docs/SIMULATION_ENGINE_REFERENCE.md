@@ -4,7 +4,7 @@ This document describes **how outcomes are computed in the repository today**: c
 
 **Scope:** Runtime behavior in `src/engine`, `src/lib/simMachine.ts`, `src/lib/marketConditions.ts`, `src/lib/simulationForecast.ts`, and related modules. Aspirational mechanics described in [`docs/design/SIMULATION_DESIGN_SPEC.md`](design/SIMULATION_DESIGN_SPEC.md) are noted where they diverge from code.
 
-**Maintenance:** When you change formulas or constants, update this file and reference the source files listed in each section. The ordered edit map for a new variable is in [`PROGRESS_AND_ROADMAP.md`](./PROGRESS_AND_ROADMAP.md). Do not widen the locked 65–67 baseline score band until that roadmap's calculation phase.
+**Maintenance:** When you change formulas or constants, update this file and reference the source files listed in each section. The ordered edit map for a new variable is in [`PROGRESS_AND_ROADMAP.md`](./PROGRESS_AND_ROADMAP.md). The fixed-plan overall score now spans 46–67. That spread is intentional. Do not collapse it back to a two-point band without a new baseline snapshot.
 
 ---
 
@@ -156,10 +156,12 @@ Each tactic’s **`cost`** is allocated **evenly** across channels determined by
 Formula for one tactic:
 
 \[
-\text{amountPerChannel} = \frac{\text{tactic.cost}}{\left|\text{mappedChannels}\right|}
+\text{amountPerChannel} = \frac{\text{tactic.cost} \times \text{budgetPosture}}{\left|\text{mappedChannels}\right|}
 \]
 
-Unknown categories default to **`['digital']`**.
+**`budgetPosture`** reads the setup split. Brand share scales `content` and `traditional`. Demand share (`leadGeneration`) scales `digital` and `partnerships`. Conversion share (`conversionOptimization`, or legacy `customerRetention`) scales `events`. A one-third share is `1`. No split is `1`. Unknown categories default to **`['digital']`**.
+
+**`totalSpend`** stays the sum of tactic costs. The posture changes channel yield, not the cash spent.
 
 **`totalSpend`** = sum of tactic costs (used for profit).
 
@@ -450,11 +452,17 @@ After **`runSimulationTick`** inside **`processQuarterAdvance`**:
 ### 8.1 Quarter revenue and profit (reported on quarter results)
 
 \[
-\text{finalRevenue}_{\text{quarter}} = \text{incrementalSales} + \sum \text{wildcard.revenue}
+\text{engineRevenue} = \text{incrementalSales} + \sum \text{wildcard.revenue}
+\]
+
+A hire on this quarter adds `calculateTalentImpact(candidate, max(0, engineRevenue))` for each `quarter.talentHired` entry. A big bet on this quarter adds the stored `bigBetOutcome.actualImpact.revenue` when `quarter.bigBetMade` is set. A skipped hire or bet adds nothing.
+
+\[
+\text{finalRevenue}_{\text{quarter}} = \text{engineRevenue} + \text{talentRevenue} + \text{betRevenue}
 \]
 
 \[
-\text{finalProfit}_{\text{quarter}} = \text{finalRevenue}_{\text{quarter}} - \text{totalSpend} + \sum \text{wildcard.profit}
+\text{finalProfit}_{\text{quarter}} = \text{engineRevenue} - \text{totalSpend} + \sum \text{wildcard.profit} + \text{talentRevenue} + \text{betRevenue} - \sum \text{hiringCost} - \text{betCost}
 \]
 
 ### 8.2 Synergy bonus flag (soft KPIs only)
@@ -476,7 +484,7 @@ After **`runSimulationTick`** inside **`processQuarterAdvance`**:
 \]
 
 \[
-\text{newMarketShare} = \mathrm{clamp}(\text{current} + \Delta_{\text{share}} + \text{wildcard}_{\text{share}},\, 0,\ 100)
+\text{newMarketShare} = \mathrm{clamp}(\text{current} + \Delta_{\text{share}} + \text{wildcard}_{\text{share}} + \text{bet}_{\text{share}},\, 0,\ 100)
 \]
 
 **Why:** Higher existing share reduces marginal effectiveness of tactic deltas (positioning friction).
@@ -484,7 +492,7 @@ After **`runSimulationTick`** inside **`processQuarterAdvance`**:
 ### 8.4 Customer satisfaction
 
 \[
-\text{newSat} = \mathrm{clamp}(\text{current} + \text{tacticSatImpact} \times 0.8 + \text{wildcard}_{\text{sat}},\, 0,\ 100)
+\text{newSat} = \mathrm{clamp}(\text{current} + \text{tacticSatImpact} \times 0.8 + \text{wildcard}_{\text{sat}} + \text{bet}_{\text{sat}},\, 0,\ 100)
 \]
 
 ### 8.5 Brand awareness and adstock milestone
@@ -498,7 +506,7 @@ After **`runSimulationTick`** inside **`processQuarterAdvance`**:
 \]
 
 \[
-\text{newAwareness} = \mathrm{clamp}(\text{current} + \text{tacticAwareness} \times 0.8 + \text{matchedAdstockBonus} + \text{wildcard}_{\text{awareness}},\, 0,\ 100)
+\text{newAwareness} = \mathrm{clamp}(\text{current} + \text{tacticAwareness} \times 0.8 + \text{matchedAdstockBonus} + \text{wildcard}_{\text{awareness}} + \text{bet}_{\text{awareness}},\, 0,\ 100)
 \]
 
 **Why:** Connects persistent media carryover to awareness; tactics still contribute via **`expectedImpact`**.
@@ -562,7 +570,13 @@ Quarter rollup (§5.5, §8) uses **`wildcard.impact`** numeric fields when prese
 - **Success:** applies full **`potentialImpact`**.
 - **Failure:** applies **−30%** of each potential impact (rounded).
 
-**`MAKE_BIG_BET`** updates cumulative KPIs immediately and subtracts bet cost from **`remainingBudget`**. Completing Q3 still runs the normal quarter tick afterward—effects **stack**.
+**`MAKE_BIG_BET`** stores the rolled outcome and the bet on that quarter, and subtracts bet cost from **`remainingBudget`**. It does not write KPIs itself. **`processQuarterAdvance`** applies that stored outcome once, in the quarter that placed the bet.
+
+### 10.3 Hires (Q2)
+
+**Source:** `calculateTalentImpact` in `src/lib/talentMarket.ts`.
+
+**`HIRE_TALENT`** records the candidate on that quarter. The quarter calculator adds the talent revenue and subtracts `hiringCost` from profit. A quarter with no `talentHired` entry does not invent a hire in the review.
 
 ---
 
@@ -597,6 +611,10 @@ Quarter rollup (§5.5, §8) uses **`wildcard.impact`** numeric fields when prese
 ### 11.3 Recommendations
 
 Heuristic strings based on thresholds (e.g. revenue &lt; 500k, share &lt; 15, satisfaction &lt; 70, awareness &lt; 40, unused budget &gt; 20% of total).
+
+### 11.4 Teaching score
+
+`calculateOverallScore` in `src/lib/simulationInsights.ts` is the score the baseline snapshot locks. Growth quality scores the revenue the four quarters added, capped at $1.2M, not the scenario's opening revenue. Weights are growth 0.42, efficiency 0.24, coherence 0.12, resilience 0.12, finish 0.10. On the fixed plan the score runs from 46 to 67. Difficulty still lowers revenue as it rises: beginner funnel scalar 1.28, intermediate 1, advanced 0.72.
 
 ---
 
@@ -638,7 +656,7 @@ If no scenario is applied: **`totalBudget`** 2M, starting **`kpis`** revenue 0, 
 | **Synergy multiplier** | Product of pairwise boosts vs other active channels |
 | **Incremental sales** | Engine’s seasonally adjusted funnel revenue (**incrementalSales**) |
 | **Base sales** | Non-incremental baseline component inside engine (**baseSales**) |
-| **Quarter revenue (UI)** | Incremental sales + wildcard revenue (§8.1) |
+| **Quarter revenue (UI)** | Incremental sales + wildcard, hire, and big-bet revenue (§8.1) |
 | **Channel ROI** | 100 × attributed revenue / spend |
 | **Exposure** | Forecast-only composite risk signal |
 | **Morale / brand equity** | Wildcard-adjusted context fields; not in §11 score |

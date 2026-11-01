@@ -157,10 +157,11 @@ export function StrategyStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = 
       title="Strategic foundation — executive hypothesis"
       subtitle="Translate calibration into a testable GTM thesis: who you serve, how you show up, and which lanes get priority before budget hits the quarterly console."
       quarter="Strategy Session"
+      hideHeader={stayOnPlay}
     >
       <div className="max-w-5xl mx-auto space-y-10 pb-20">
         {/* Strategy Controls */}
-        <GlassCard className="border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_55%,#f1f5f9_100%)]">
+        {!stayOnPlay ? <GlassCard className="border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_55%,#f1f5f9_100%)]">
           <div className="p-6 md:p-8">
             <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_360px]">
               <div className="space-y-2">
@@ -193,12 +194,12 @@ export function StrategyStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = 
               </div>
             </div>
           </div>
-        </GlassCard>
+        </GlassCard> : null}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-            <span>Strategy flow</span>
-            <span>Step {mobileStep} / 3</span>
+        <div className={stayOnPlay ? "" : "rounded-2xl border border-slate-200 bg-white p-4"}>
+          <div className={stayOnPlay ? "flex items-center justify-between text-sm text-[#6b6b6b]" : "flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-slate-500"}>
+            <span>{stayOnPlay ? "This decision" : "Strategy flow"}</span>
+            <span className={stayOnPlay ? "font-mono tabular-nums text-[#0a0a0a]" : ""}>{mobileStep} / 3</span>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             {[1, 2, 3].map((s) => (
@@ -218,6 +219,14 @@ export function StrategyStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = 
         </div>
 
         {/* Budget Overview */}
+        {stayOnPlay ? (
+          <p className="text-sm text-[#6b6b6b]">
+            Year budget{" "}
+            <span className="font-mono text-[30px] font-medium tabular-nums text-[#0a0a0a]">
+              ${context.totalBudget.toLocaleString()}
+            </span>
+          </p>
+        ) : (
         <GlassCard className="border-slate-200 bg-white">
           <div className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4">
@@ -234,10 +243,11 @@ export function StrategyStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = 
             </div>
           </div>
         </GlassCard>
+        )}
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Target Audience */}
-          <GlassCard className={cn("h-full", mobileStep !== 1 && 'hidden')}>
+          <GlassCard className={cn("h-full", mobileStep !== 1 && 'hidden', stayOnPlay && "border-0 bg-transparent p-0 shadow-none")}>
             <div className="p-6 space-y-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-slate-950">
@@ -304,7 +314,7 @@ export function StrategyStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = 
           </GlassCard>
 
           {/* Brand Positioning */}
-          <GlassCard className={cn("h-full", mobileStep !== 2 && 'hidden')}>
+          <GlassCard className={cn("h-full", mobileStep !== 2 && 'hidden', stayOnPlay && "border-0 bg-transparent p-0 shadow-none")}>
             <div className="p-6 space-y-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-slate-950">
@@ -372,7 +382,7 @@ export function StrategyStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = 
         </div>
 
         {/* Primary Channels */}
-        <GlassCard className={cn(mobileStep !== 3 && 'hidden')}>
+        <GlassCard className={cn(mobileStep !== 3 && 'hidden', stayOnPlay && "border-0 bg-transparent p-0 shadow-none")}>
           <div className="p-8 space-y-8">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-slate-950">

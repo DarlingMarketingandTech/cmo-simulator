@@ -40,34 +40,34 @@ export function QuarterReviewStep({ quarter }: { quarter: QuarterId }) {
   });
 
   return (
-    <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-slate-950">{quarter} review</h2>
-      <dl className="grid gap-3 sm:grid-cols-2">
+    <section className="space-y-8">
+      <p className="text-sm text-[#6b6b6b]">{quarter} result</p>
+      <p className="font-mono text-[30px] font-medium tabular-nums leading-none text-[#1d5fbf]">
+        {formatNumber(facts.revenue)}
+      </p>
+      <p className="text-sm text-[#6b6b6b]">Revenue this quarter</p>
+      <dl className="grid gap-x-8 gap-y-4 border-t border-[#e6e6e6] pt-6 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tactics</dt>
-          <dd className="mt-1 text-sm text-slate-900">
+          <dt className="text-sm text-[#6b6b6b]">Moves</dt>
+          <dd className="mt-1 text-sm text-[#0a0a0a]">
             {facts.tacticIds.length > 0 ? facts.tacticIds.join(", ") : "None"}
           </dd>
         </div>
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Revenue</dt>
-          <dd className="mt-1 text-sm font-medium text-slate-950">{formatNumber(facts.revenue)}</dd>
+          <dt className="text-sm text-[#6b6b6b]">Profit</dt>
+          <dd className="mt-1 font-mono text-sm tabular-nums text-[#0a0a0a]">{formatNumber(facts.profit)}</dd>
         </div>
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Profit</dt>
-          <dd className="mt-1 text-sm font-medium text-slate-950">{formatNumber(facts.profit)}</dd>
+          <dt className="text-sm text-[#6b6b6b]">Market share</dt>
+          <dd className="mt-1 font-mono text-sm tabular-nums text-[#0a0a0a]">{formatNumber(facts.marketShare)}</dd>
         </div>
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Market share</dt>
-          <dd className="mt-1 text-sm font-medium text-slate-950">{formatNumber(facts.marketShare)}</dd>
+          <dt className="text-sm text-[#6b6b6b]">Customer satisfaction</dt>
+          <dd className="mt-1 font-mono text-sm tabular-nums text-[#0a0a0a]">{formatNumber(facts.customerSatisfaction)}</dd>
         </div>
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Customer satisfaction</dt>
-          <dd className="mt-1 text-sm font-medium text-slate-950">{formatNumber(facts.customerSatisfaction)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Brand awareness</dt>
-          <dd className="mt-1 text-sm font-medium text-slate-950">{formatNumber(facts.brandAwareness)}</dd>
+          <dt className="text-sm text-[#6b6b6b]">Brand awareness</dt>
+          <dd className="mt-1 font-mono text-sm tabular-nums text-[#0a0a0a]">{formatNumber(facts.brandAwareness)}</dd>
         </div>
         {facts.wildcardChoiceId ? (
           <div>

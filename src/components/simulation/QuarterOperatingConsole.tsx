@@ -164,104 +164,25 @@ export function QuarterOperatingConsole({
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 pb-10 lg:space-y-6 lg:pb-16">
-      <header className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm lg:rounded-xl">
-        <div className="border-b border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-4 text-slate-950 md:px-6 lg:bg-slate-950 lg:px-5 lg:py-5 lg:text-white">
-          <QuarterTrack activeQuarter={quarter} />
+      <header>
+        <p className="text-sm text-[#6b6b6b]">{subtitle}</p>
+        <p className="mt-4 text-sm text-[#6b6b6b]">Reserve</p>
+        <p className={cn("font-mono text-[30px] font-medium tabular-nums leading-none", budgetIsOver ? "text-[#c4242a]" : "text-[#1d5fbf]")}>
+          ${budgetSummary.remainingBudget.toLocaleString()}
+        </p>
+        <p className="mt-2 font-mono text-sm tabular-nums text-[#6b6b6b]">
+          ${budgetSummary.usedBudget.toLocaleString()} used of ${budgetSummary.quarterBudget.toLocaleString()}
+        </p>
+        <div className="mt-4 h-1 overflow-hidden bg-[#e6e6e6]">
+          <div
+            className={cn("h-full", budgetIsOver ? "bg-[#c4242a]" : "bg-[#1d5fbf]")}
+            style={{ width: `${Math.min(budgetSummary.utilization * 100, 100)}%` }}
+          />
         </div>
-        <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_320px] md:p-6">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{quarter} Operating Console</p>
-            <h1 className="mt-2 text-[1.75rem] font-semibold tracking-tight text-slate-950 md:text-4xl">{title}</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base md:leading-7">{subtitle}</p>
-          </div>
-          <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Quarter budget</p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-                  ${budgetSummary.usedBudget.toLocaleString()}
-                </p>
-              </div>
-              <WalletCards className="h-6 w-6 text-slate-500" />
-            </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-              <div
-                className={cn('h-full rounded-full', budgetIsOver ? 'bg-red-600' : 'bg-slate-950')}
-                style={{ width: `${Math.min(budgetSummary.utilization * 100, 100)}%` }}
-              />
-            </div>
-            <div className="mt-3 flex items-center justify-between text-xs font-medium text-slate-600">
-              <span>{Math.round(budgetSummary.utilization * 100)}% used</span>
-              <span className={cn(budgetIsOver && 'text-red-700')}>
-                ${budgetSummary.remainingBudget.toLocaleString()} reserve
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="border-t border-slate-200 bg-slate-50/90 px-4 py-4 md:px-6">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Quarter objective</p>
-              <p className="mt-1 text-base font-semibold text-slate-950">{execFocus.headline}</p>
-              <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm leading-6 text-slate-600">
-                {execFocus.objectives.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-            <div
-              className={cn(
-                'rounded-2xl border p-4',
-                planConsequence.verdictTone === 'danger'
-                  ? 'border-red-200 bg-red-50/90'
-                  : planConsequence.verdictTone === 'warning'
-                    ? 'border-amber-200 bg-amber-50/90'
-                    : planConsequence.verdictTone === 'positive'
-                      ? 'border-emerald-200 bg-emerald-50/90'
-                      : 'border-slate-200 bg-white',
-              )}
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Why this plan is strong or fragile</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">{planConsequence.verdictLabel}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">{planConsequence.detail}</p>
-            </div>
-          </div>
-        </div>
+        <p className="mt-3 text-sm leading-6 text-[#6b6b6b]">{planConsequence.detail}</p>
       </header>
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Panel className="min-w-0">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Quarter review</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-950">Keep this screen for decisions. Open the review surface when you need the forecast and rationale.</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                KPI movement, risk notes, confidence band, and mentor guidance now live behind one dedicated review screen so this console stays lighter while you build the plan.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-xl border-slate-300 bg-white text-slate-800"
-              onClick={() => setReviewOpen(true)}
-            >
-              Open quarter review
-            </Button>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <BudgetFact label="Plan state" value={planReadiness} isWarning={budgetIsOver} />
-            <BudgetFact label="Selected moves" value={`${selectedTactics.length}`} />
-            <BudgetFact label="Revenue spread" value={formatForecastValue(forecast.scenarioSpread.revenue, 'currency')} />
-          </div>
-        </Panel>
-
-        <Panel>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Decision status</div>
-          <p className="mt-2 text-sm leading-6 text-slate-700">{planConsequence.detail}</p>
-        </Panel>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="grid gap-8">
         <main className="space-y-6">
           <Panel>
             <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between">
@@ -394,9 +315,7 @@ export function QuarterOperatingConsole({
                 <h2 className="text-lg font-semibold text-slate-950">Selected plan</h2>
                 <p className="text-sm text-slate-600">These moves will be committed when you finalize the quarter.</p>
               </div>
-              <span className={cn('text-sm font-semibold', budgetSummary.remainingBudget < 0 ? 'text-red-700' : 'text-slate-700')}>
-                ${budgetSummary.remainingBudget.toLocaleString()} remaining
-              </span>
+              <span className="text-sm text-[#6b6b6b]">{selectedTactics.length} in the plan</span>
             </div>
 
             {selectedTactics.length === 0 ? (
@@ -428,22 +347,6 @@ export function QuarterOperatingConsole({
           </div>
 
           <div className="space-y-4 lg:hidden">
-            <Panel>
-              <h2 className="text-lg font-semibold text-slate-950">Budget status</h2>
-              <div className="mt-4 space-y-3">
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={cn('h-full rounded-full', budgetSummary.remainingBudget < 0 ? 'bg-red-600' : 'bg-slate-950')}
-                    style={{ width: `${Math.min(budgetSummary.utilization * 100, 100)}%` }}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <BudgetFact label="Used" value={`$${budgetSummary.usedBudget.toLocaleString()}`} />
-                  <BudgetFact label="Reserve" value={`$${budgetSummary.remainingBudget.toLocaleString()}`} isWarning={budgetSummary.remainingBudget < 0} />
-                </div>
-              </div>
-            </Panel>
-
             <Button
               type="button"
               variant="outline"
@@ -476,23 +379,7 @@ export function QuarterOperatingConsole({
           </div>
         </main>
 
-        <aside className="hidden space-y-6 lg:sticky lg:top-28 lg:block lg:self-start">
-          <Panel>
-            <h2 className="text-lg font-semibold text-slate-950">Budget status</h2>
-            <div className="mt-4 space-y-3">
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className={cn('h-full rounded-full', budgetSummary.remainingBudget < 0 ? 'bg-red-600' : 'bg-slate-950')}
-                  style={{ width: `${Math.min(budgetSummary.utilization * 100, 100)}%` }}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <BudgetFact label="Used" value={`$${budgetSummary.usedBudget.toLocaleString()}`} />
-                <BudgetFact label="Reserve" value={`$${budgetSummary.remainingBudget.toLocaleString()}`} isWarning={budgetSummary.remainingBudget < 0} />
-              </div>
-            </div>
-          </Panel>
-
+        <aside className="hidden space-y-6 lg:block">
           <Button
             type="button"
             variant="outline"
@@ -784,7 +671,7 @@ function DecisionBriefPanel({
 
 function Panel({ children, className, id }: { children: React.ReactNode; className?: string; id?: string }) {
   return (
-    <section id={id} className={cn('rounded-lg border border-slate-200 bg-white p-5 shadow-sm', className)}>
+    <section id={id} className={cn('border-t border-[#e6e6e6] pt-6', className)}>
       {children}
     </section>
   );
