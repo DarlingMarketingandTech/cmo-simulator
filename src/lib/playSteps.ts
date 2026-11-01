@@ -73,6 +73,23 @@ export function canContinueStrategy(input: {
   );
 }
 
+const LEGACY_PLAY_PREFIXES = [
+  "/sim/setup",
+  "/sim/strategy",
+  "/sim/q1",
+  "/sim/q2",
+  "/sim/q3",
+  "/sim/q4",
+  "/sim/campaigns",
+  "/sim/pipeline",
+  "/sim/analytics",
+  "/sim/debrief",
+];
+
+export function legacyPathOpensPlay(pathname: string): boolean {
+  return LEGACY_PLAY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export function canContinuePlayStep(step: PlayStepId, input?: PlayContinueInput): boolean {
   if (step === "final-menu") return false;
   if (!PLAN_STEPS.includes(step)) return true;

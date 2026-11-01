@@ -5,6 +5,7 @@ import { runSimulationTick, initializeSimulationState } from '../engine';
 import { SimulationState, Channel, PlayerInput, MarketConditions } from '../types/engine';
 import type { TimeHorizon, MarketLandscape, Industry, DifficultyLevel } from '@/types';
 import { mergeSimulationContext } from "@/lib/simulationHydration";
+import type { PlayStepId } from "@/lib/playSteps";
 import { buildQuarterMarketConditions } from "@/lib/marketConditions";
 import type {
   SimulationKpiSnapshot,
@@ -13,6 +14,7 @@ import type {
 
 // Types for simulation context and events
 export interface SimulationContext {
+  playStep: PlayStepId;
   // Simulation metadata
   simulationId?: string;
   startedAt?: Date;
@@ -168,6 +170,11 @@ export type HydrationPatch =
 // Event types
 export type SimulationEvent =
   | { type: 'HYDRATE_CONTEXT'; context: HydrationPatch }
+  | {
+      type: 'RESTORE_SIMULATION';
+      context: HydrationPatch;
+      phase: 'idle' | 'strategySession' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'debrief';
+    }
   | { type: 'START_SIMULATION' }
   | { type: 'SET_STRATEGY'; strategy: Partial<SimulationContext['strategy']> }
   | { type: 'COMPLETE_STRATEGY_SESSION' }
@@ -197,11 +204,14 @@ export type SimulationEvent =
   | { type: 'COMPLETE_QUARTER'; quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4' }
   | { type: 'CALCULATE_RESULTS' }
   | { type: 'COMPLETE_DEBRIEF' }
+  | { type: 'SET_PLAY_STEP'; playStep: PlayStepId }
+  | { type: 'HIRE_TALENT'; quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4'; candidate: TalentCandidate }
   | { type: 'RESTART_SIMULATION' }
   | { type: 'SAVE_SIMULATION' };
 
 // Initial context
 const initialContext: SimulationContext = {
+  playStep: "setup",
   strategy: {},
   quarters: {
     Q1: {
@@ -288,6 +298,42 @@ export const simulationMachine = createMachine({
   id: 'cmoSimulation',
   initial: 'idle',
   context: initialContext,
+  on: {
+    HYDRATE_CONTEXT: {
+      actions: assign(({ context, event }) =>
+        event.type === "HYDRATE_CONTEXT" ? mergeSimulationContext(context, event.context) : {},
+      ),
+    },
+    SET_PLAY_STEP: {
+      actions: assign({
+        playStep: ({ event }) => event.playStep,
+      }),
+    },
+    HIRE_TALENT: {
+      actions: assign(({ context, event }) => {
+        if (event.type !== "HIRE_TALENT") return {};
+        const candidate = event.candidate;
+        const hire = (quarter: "Q1" | "Q2" | "Q3" | "Q4") => ({
+          ...context.quarters[quarter],
+          talentHired: [...(context.quarters[quarter].talentHired ?? []), candidate],
+        });
+        return {
+          hiredTalent: [...context.hiredTalent, candidate],
+          quarters: {
+            ...context.quarters,
+            ...(event.quarter === "Q1" ? { Q1: hire("Q1") } : null),
+            ...(event.quarter === "Q2" ? { Q2: hire("Q2") } : null),
+            ...(event.quarter === "Q3" ? { Q3: hire("Q3") } : null),
+            ...(event.quarter === "Q4" ? { Q4: hire("Q4") } : null),
+          },
+        };
+      }),
+    },
+    RESTART_SIMULATION: {
+      target: ".idle",
+      actions: assign(() => createInitialSimulationContext()),
+    },
+  },
   states: {
     idle: {
       on: {
@@ -296,6 +342,41 @@ export const simulationMachine = createMachine({
             event.type === "HYDRATE_CONTEXT" ? mergeSimulationContext(context, event.context) : {},
           ),
         },
+        RESTORE_SIMULATION: [
+          {
+            guard: ({ event }) => event.phase === "strategySession",
+            target: "strategySession",
+            actions: assign(({ context, event }) => mergeSimulationContext(context, event.context)),
+          },
+          {
+            guard: ({ event }) => event.phase === "Q1",
+            target: "Q1",
+            actions: assign(({ context, event }) => mergeSimulationContext(context, event.context)),
+          },
+          {
+            guard: ({ event }) => event.phase === "Q2",
+            target: "Q2",
+            actions: assign(({ context, event }) => mergeSimulationContext(context, event.context)),
+          },
+          {
+            guard: ({ event }) => event.phase === "Q3",
+            target: "Q3",
+            actions: assign(({ context, event }) => mergeSimulationContext(context, event.context)),
+          },
+          {
+            guard: ({ event }) => event.phase === "Q4",
+            target: "Q4",
+            actions: assign(({ context, event }) => mergeSimulationContext(context, event.context)),
+          },
+          {
+            guard: ({ event }) => event.phase === "debrief",
+            target: "debrief",
+            actions: assign(({ context, event }) => mergeSimulationContext(context, event.context)),
+          },
+          {
+            actions: assign(({ context, event }) => mergeSimulationContext(context, event.context)),
+          },
+        ],
         START_SIMULATION: {
           target: 'strategySession',
           actions: assign({

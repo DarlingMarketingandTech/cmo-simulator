@@ -34,10 +34,8 @@ import type { SimulationContext } from '@/lib/simMachine';
 import {
   getCurrentProgressRouteFromSnapshot,
   isAllowedProgressRoute,
-  isEmptySimulationContext,
   isGuardedSimulatorRoute,
-  resolveProgressRoute,
-  ROUTE_PRIORITY,
+  resolveResumeRoute,
   type SimulatorProgressRoute,
 } from '@/lib/simulationProgress';
 import { cn } from '@/lib/utils';
@@ -81,26 +79,10 @@ export function CrmShell({ children }: { children: ReactNode }) {
     }
   }, [pathname]);
 
-  const progressRoute = useMemo(() => {
-    const snapshotRoute = getCurrentProgressRouteFromSnapshot(savedSnapshot);
-    if (pathname.startsWith('/sim/setup')) {
-      return '/sim/setup';
-    }
-    if (!isReady) {
-      return snapshotRoute;
-    }
-
-    const currentRoute = resolveProgressRoute(context);
-    if (isEmptySimulationContext(context) && snapshotRoute && ROUTE_PRIORITY[snapshotRoute] > ROUTE_PRIORITY['/sim/setup']) {
-      return snapshotRoute;
-    }
-
-    if (!isEmptySimulationContext(context) && currentRoute === '/sim/setup' && snapshotRoute && ROUTE_PRIORITY[snapshotRoute] > ROUTE_PRIORITY['/sim/setup']) {
-      return snapshotRoute;
-    }
-
-    return currentRoute;
-  }, [context, isReady, pathname, savedSnapshot]);
+  const progressRoute = useMemo(
+    () => resolveResumeRoute({ context, snapshot: savedSnapshot, isReady, pathname }),
+    [context, isReady, pathname, savedSnapshot],
+  );
   const quarterItem = useMemo(() => quarterNavItemForRoute(progressRoute), [progressRoute]);
   const mobileModeItem = useMemo(() => mobileModeItemForPath(pathname), [pathname]);
   const lockedQuarterRoutes = useMemo(() => getLockedQuarterRoutes(progressRoute), [progressRoute]);
@@ -176,6 +158,10 @@ export function CrmShell({ children }: { children: ReactNode }) {
       window.removeEventListener('touchstart', showNav);
     };
   }, []);
+
+  if (pathname?.startsWith("/sim/play")) {
+    return children;
+  }
 
   return (
     <div className="mobile-app-shell min-h-screen bg-[linear-gradient(180deg,#f7f9fc_0%,#eef3f8_34%,#f6f8fb_100%)] text-slate-950">

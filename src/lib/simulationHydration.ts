@@ -1,4 +1,5 @@
 import type { HydrationPatch, SimulationContext } from "@/lib/simMachine";
+import { PLAY_STEPS, type PlayStepId } from "@/lib/playSteps";
 import type { DifficultyLevel, Industry } from "@/types";
 import type {
   Channel,
@@ -239,6 +240,11 @@ function mergeEngineState(
   };
 }
 
+function resolvePlayStep(base: PlayStepId, value: unknown): PlayStepId {
+  if (typeof value !== "string") return base;
+  return (PLAY_STEPS as readonly string[]).includes(value) ? (value as PlayStepId) : "setup";
+}
+
 export function mergeSimulationContext(
   base: SimulationContext,
   patch: HydrationPatch,
@@ -270,5 +276,6 @@ export function mergeSimulationContext(
     engineState: mergeEngineState(base.engineState, patch.engineState as unknown, derivedIndustry),
     wildcards: patch.wildcards ?? base.wildcards,
     hiredTalent: patch.hiredTalent ?? base.hiredTalent,
+    playStep: resolvePlayStep(base.playStep, patch.playStep),
   };
 }

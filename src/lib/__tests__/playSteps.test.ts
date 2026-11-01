@@ -2,6 +2,7 @@ import {
   canContinuePlayStep,
   canContinueSetup,
   canContinueStrategy,
+  legacyPathOpensPlay,
   nextPlayStep,
   PLAY_STEPS,
   previousPlayStep,
@@ -95,5 +96,16 @@ describe("continue gates", () => {
   test("review and the final menu can continue without tactics", () => {
     expect(canContinuePlayStep("q1-review")).toBe(true);
     expect(canContinuePlayStep("final-menu")).toBe(false);
+  });
+});
+
+describe("legacy paths", () => {
+  test("quarter and CRM paths belong to the play screen", () => {
+    expect(legacyPathOpensPlay("/sim/q3")).toBe(true);
+    expect(legacyPathOpensPlay("/sim/campaigns")).toBe(true);
+    expect(legacyPathOpensPlay("/sim/pipeline")).toBe(true);
+    expect(legacyPathOpensPlay("/sim/analytics")).toBe(true);
+    expect(legacyPathOpensPlay("/sim/play")).toBe(false);
+    expect(legacyPathOpensPlay("/sim")).toBe(false);
   });
 });
