@@ -1,4 +1,11 @@
-import { nextPlayStep, PLAY_STEPS, previousPlayStep } from "../playSteps";
+import {
+  canContinuePlayStep,
+  canContinueSetup,
+  canContinueStrategy,
+  nextPlayStep,
+  PLAY_STEPS,
+  previousPlayStep,
+} from "../playSteps";
 
 describe("play step order", () => {
   test("lists the eleven approved steps in order", () => {
@@ -26,5 +33,67 @@ describe("play step order", () => {
     expect(previousPlayStep("q2-review")).toBe("q2-plan");
     expect(previousPlayStep("q2-plan")).toBe("q1-review");
     expect(previousPlayStep("setup")).toBeNull();
+  });
+});
+
+const openQuarter = {
+  tacticCount: 1,
+  spend: 1000,
+  quarterBudget: 125000,
+  wildcardPresented: false,
+  wildcardAnswered: false,
+};
+
+describe("continue gates", () => {
+  test("setup requires scenario, company, logo, and a budget allocation", () => {
+    expect(canContinueSetup({
+      scenarioId: "challenger",
+      companyName: "Guided Demo Co.",
+      logoStyle: "monogram",
+      hasBudgetAllocation: true,
+    })).toBe(true);
+    expect(canContinueSetup({
+      scenarioId: null,
+      companyName: "",
+      logoStyle: null,
+      hasBudgetAllocation: false,
+    })).toBe(false);
+  });
+
+  test("strategy requires audience, positioning, and one channel", () => {
+    expect(canContinueStrategy({
+      targetAudience: "Young professionals",
+      brandPositioning: "Innovation",
+      channelCount: 1,
+    })).toBe(true);
+    expect(canContinueStrategy({
+      targetAudience: "",
+      brandPositioning: "Innovation",
+      channelCount: 1,
+    })).toBe(false);
+  });
+
+  test("a quarter plan requires a tactic inside budget", () => {
+    expect(canContinuePlayStep("q1-plan", openQuarter)).toBe(true);
+    expect(canContinuePlayStep("q1-plan", { ...openQuarter, tacticCount: 0 })).toBe(false);
+    expect(canContinuePlayStep("q1-plan", { ...openQuarter, spend: 200000 })).toBe(false);
+  });
+
+  test("a presented wildcard must be answered", () => {
+    expect(canContinuePlayStep("q2-plan", {
+      ...openQuarter,
+      wildcardPresented: true,
+      wildcardAnswered: false,
+    })).toBe(false);
+    expect(canContinuePlayStep("q2-plan", {
+      ...openQuarter,
+      wildcardPresented: true,
+      wildcardAnswered: true,
+    })).toBe(true);
+  });
+
+  test("review and the final menu can continue without tactics", () => {
+    expect(canContinuePlayStep("q1-review")).toBe(true);
+    expect(canContinuePlayStep("final-menu")).toBe(false);
   });
 });
