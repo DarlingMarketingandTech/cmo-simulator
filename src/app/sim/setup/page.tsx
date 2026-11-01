@@ -375,7 +375,7 @@ export default function SetupPage() {
     }
   }, [data.companyName, showAdvancedIdentity, step]);
 
-  const navigateAfterHydration = (nextPath: string) => {
+  const navigateAfterHydration = (nextPath: string, preferredSnapshot?: Partial<SimulationContext>) => {
     if (typeof window === 'undefined') {
       router.push(nextPath);
       return;
@@ -386,13 +386,15 @@ export default function SetupPage() {
       try {
         window.localStorage.setItem('cmo-sim-state-v2', JSON.stringify(snapshot));
       } catch (error) {
-        logger.warn('Failed to persist hydrated snapshot before navigation', error);
+        logger.warn('Failed to persist hydrated snapshot before navigation', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     };
 
-    const snapshot = context && Object.keys(context.strategy ?? {}).length > 0
-      ? context
-      : createInitialSimulationContext();
+    const snapshot = preferredSnapshot
+      ?? context
+      ?? createInitialSimulationContext();
     persistSnapshot(snapshot);
 
     window.requestAnimationFrame(() => {
@@ -534,13 +536,25 @@ export default function SetupPage() {
       }
 
       send({ type: 'HYDRATE_CONTEXT', context: initialState as HydrationPatch });
-      localStorage.setItem('cmo-sim-state-v2', JSON.stringify({ ...initialState, strategy: { ...initialState.strategy } }));
+      const persistedSetupState = {
+        ...initialState,
+        strategy: { ...initialState.strategy },
+        quarters: mergeSimulationContext(createInitialSimulationContext(), initialState as HydrationPatch).quarters,
+      };
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('cmo-sim-state-v2', JSON.stringify(persistedSetupState));
+      }
 
       try {
         await saveSimulationSnapshot(hydratedContext, 'setup', 'in_progress');
       } catch (snapshotError) {
         logger.error('Failed to persist initial simulation snapshot', snapshotError);
       }
+
+      const freshStrategyState = {
+        ...persistedSetupState,
+        strategy: { ...persistedSetupState.strategy },
+      };
 
       trackStart({
         industry: scenario.industry,
@@ -566,7 +580,7 @@ export default function SetupPage() {
         },
       });
 
-      navigateAfterHydration('/sim/strategy');
+      navigateAfterHydration('/sim/strategy', freshStrategyState);
     } catch (error) {
       logger.error('Error saving simulation', error);
       alert('Failed to initialize simulation. Please try again.');
@@ -608,7 +622,12 @@ export default function SetupPage() {
     );
 
     send({ type: 'HYDRATE_CONTEXT', context: guidedDemoState as HydrationPatch });
-    localStorage.setItem('cmo-sim-state-v2', JSON.stringify(guidedDemoState));
+    const persistedGuidedDemoState = {
+      ...guidedDemoState,
+      strategy: { ...guidedDemoState.strategy },
+      quarters: mergeSimulationContext(createInitialSimulationContext(), guidedDemoState as HydrationPatch).quarters,
+    };
+    localStorage.setItem('cmo-sim-state-v2', JSON.stringify(persistedGuidedDemoState));
     void (async () => {
       try {
         await saveSimulationSnapshot(hydratedDemoContext, 'setup', 'in_progress');
@@ -624,7 +643,7 @@ export default function SetupPage() {
         logger.error('Failed to persist guided demo setup', error);
       }
     })();
-    navigateAfterHydration('/sim/strategy?demo=1');
+    navigateAfterHydration('/sim/strategy?demo=1', persistedGuidedDemoState);
   };
 
   const resumeSavedRun = () => {

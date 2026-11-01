@@ -34,8 +34,10 @@ import type { SimulationContext } from '@/lib/simMachine';
 import {
   getCurrentProgressRouteFromSnapshot,
   isAllowedProgressRoute,
+  isEmptySimulationContext,
   isGuardedSimulatorRoute,
   resolveProgressRoute,
+  ROUTE_PRIORITY,
   type SimulatorProgressRoute,
 } from '@/lib/simulationProgress';
 import { cn } from '@/lib/utils';
@@ -81,6 +83,9 @@ export function CrmShell({ children }: { children: ReactNode }) {
 
   const progressRoute = useMemo(() => {
     const snapshotRoute = getCurrentProgressRouteFromSnapshot(savedSnapshot);
+    if (pathname.startsWith('/sim/setup')) {
+      return '/sim/setup';
+    }
     if (!isReady) {
       return snapshotRoute;
     }
@@ -90,8 +95,12 @@ export function CrmShell({ children }: { children: ReactNode }) {
       return snapshotRoute;
     }
 
+    if (!isEmptySimulationContext(context) && currentRoute === '/sim/setup' && snapshotRoute && ROUTE_PRIORITY[snapshotRoute] > ROUTE_PRIORITY['/sim/setup']) {
+      return snapshotRoute;
+    }
+
     return currentRoute;
-  }, [context, isReady, savedSnapshot]);
+  }, [context, isReady, pathname, savedSnapshot]);
   const quarterItem = useMemo(() => quarterNavItemForRoute(progressRoute), [progressRoute]);
   const mobileModeItem = useMemo(() => mobileModeItemForPath(pathname), [pathname]);
   const lockedQuarterRoutes = useMemo(() => getLockedQuarterRoutes(progressRoute), [progressRoute]);
