@@ -44,7 +44,7 @@ function hasMeaningfulSimulationState(context: Partial<HydrationPatch> | undefin
   }
 
   if (context.kpis && typeof context.kpis === 'object') {
-    const kpis = context.kpis as Record<string, unknown>;
+    const kpis = context.kpis as unknown as Record<string, unknown>;
     const kpiValues = Object.values(kpis);
     if (kpiValues.some((value) => typeof value === 'number' && value !== 0 && value !== 10 && value !== 30 && value !== 70)) {
       return true;
