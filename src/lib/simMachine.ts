@@ -309,6 +309,43 @@ export const simulationMachine = createMachine({
         playStep: ({ event }) => event.playStep,
       }),
     },
+    ADD_TACTIC: {
+      actions: assign(({ context, event }) => {
+        if (event.type !== "ADD_TACTIC") return {};
+        const quarter = event.quarter as "Q1" | "Q2" | "Q3" | "Q4";
+        const existing = context.quarters[quarter].tactics;
+        if (existing.some((item) => item.id === event.tactic.id)) return {};
+        return {
+          quarters: {
+            ...context.quarters,
+            [quarter]: {
+              ...context.quarters[quarter],
+              tactics: [...existing, event.tactic],
+            },
+          },
+          remainingBudget: context.remainingBudget - (event.tactic.cost || 0),
+        };
+      }),
+    },
+    REMOVE_TACTIC: {
+      actions: assign(({ context, event }) => {
+        if (event.type !== "REMOVE_TACTIC") return {};
+        const quarter = event.quarter as "Q1" | "Q2" | "Q3" | "Q4";
+        const existing = context.quarters[quarter].tactics;
+        const removed = existing.find((item) => item.id === event.tacticId);
+        if (!removed) return {};
+        return {
+          quarters: {
+            ...context.quarters,
+            [quarter]: {
+              ...context.quarters[quarter],
+              tactics: existing.filter((item) => item.id !== event.tacticId),
+            },
+          },
+          remainingBudget: context.remainingBudget + (removed.cost || 0),
+        };
+      }),
+    },
     HIRE_TALENT: {
       actions: assign(({ context, event }) => {
         if (event.type !== "HIRE_TALENT") return {};

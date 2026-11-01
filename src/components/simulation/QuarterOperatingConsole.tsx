@@ -363,7 +363,7 @@ export function QuarterOperatingConsole({
                           'justify-center rounded-md',
                           isSelected ? 'border-slate-300 bg-white text-slate-600 hover:bg-white' : 'bg-slate-950 text-white hover:bg-slate-800',
                         )}
-                        disabled={isSelected}
+                        disabled={isSelected || tactic.cost > budgetSummary.remainingBudget}
                         onClick={() => onAddTactic(tactic)}
                       >
                         {isSelected ? (
@@ -371,6 +371,8 @@ export function QuarterOperatingConsole({
                             <Check className="mr-2 h-4 w-4" />
                             In plan
                           </>
+                        ) : tactic.cost > budgetSummary.remainingBudget ? (
+                          <>Over budget</>
                         ) : (
                           <>
                             <Plus className="mr-2 h-4 w-4" />

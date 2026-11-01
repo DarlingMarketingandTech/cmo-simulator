@@ -57,24 +57,29 @@ export function CrmShell({ children }: { children: ReactNode }) {
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
   const [accountOpen, setAccountOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState<Partial<SimulationContext> | null>(null);
 
-  const companyNameRaw = context.strategy.companyName?.trim() ?? '';
+  const companyNameRaw = hasMounted ? (context.strategy.companyName?.trim() ?? '') : '';
   const companyName = companyNameRaw || 'Name your company in Setup';
-  const industry = context.strategy.industry || 'saas';
-  const logoStyle = context.strategy.logoStyle || 'orb';
-  const runStatus = context.finalResults ? 'Completed' : 'In progress';
+  const industry = hasMounted ? (context.strategy.industry || 'saas') : 'saas';
+  const logoStyle = hasMounted ? (context.strategy.logoStyle || 'orb') : 'orb';
+  const runStatus = hasMounted && context.finalResults ? 'Completed' : 'In progress';
   const userLabel = user?.email ?? 'Signed in user';
   const roleLabel = user?.role ?? 'user';
-  const savedSnapshot = useMemo(() => {
-    if (typeof window === 'undefined') return null;
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem('cmo-sim-state-v2');
-      if (!raw) return null;
-      return JSON.parse(raw) as Partial<SimulationContext>;
+      setSavedSnapshot(raw ? JSON.parse(raw) as Partial<SimulationContext> : null);
     } catch {
-      return null;
+      setSavedSnapshot(null);
     }
-  }, [pathname]);
+  }, [pathname, context]);
 
   const progressRoute = useMemo(
     () => resolveResumeRoute({ context, snapshot: savedSnapshot, isReady, pathname }),
@@ -159,7 +164,7 @@ export function CrmShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  if (pathname?.startsWith("/sim/play")) {
+  if (pathname === "/sim" || pathname?.startsWith("/sim/play")) {
     return children;
   }
 
@@ -204,8 +209,8 @@ export function CrmShell({ children }: { children: ReactNode }) {
                   </span>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <SidebarMetric label="Revenue" value={formatCurrency(context.kpis.revenue)} />
-                  <SidebarMetric label="Market" value={formatPercent(context.kpis.marketShare)} />
+                  <SidebarMetric label="Revenue" value={hasMounted ? formatCurrency(context.kpis.revenue) : '$0'} />
+                  <SidebarMetric label="Market" value={hasMounted ? formatPercent(context.kpis.marketShare) : '0%'} />
                 </div>
                 <p className="mt-3 text-[11px] leading-5 text-slate-500">
                   The workspace keeps score while each quarter adds another decision layer.
@@ -242,11 +247,11 @@ export function CrmShell({ children }: { children: ReactNode }) {
               <div className="hidden items-center gap-2 md:flex">
                 <SaveSyncStatus />
                 <Link
-                  href="/sim/setup"
+                  href="/sim/play"
                   className="ml-2 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
                 >
                   <Wrench className="h-4 w-4 text-slate-500" />
-                  Workspace
+                  Continue
                 </Link>
                 <details className="relative">
                   <summary className="list-none cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
@@ -322,10 +327,10 @@ export function CrmShell({ children }: { children: ReactNode }) {
                   {runStatus} operating year
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <CompactMetric label="Revenue" value={formatCurrency(context.kpis.revenue)} />
-                  <CompactMetric label="Profit" value={formatCurrency(context.kpis.profit)} />
-                  <CompactMetric label="Market" value={formatPercent(context.kpis.marketShare)} />
-                  <CompactMetric label="Brand" value={formatPercent(context.kpis.brandAwareness)} />
+                  <CompactMetric label="Revenue" value={hasMounted ? formatCurrency(context.kpis.revenue) : '$0'} />
+                  <CompactMetric label="Profit" value={hasMounted ? formatCurrency(context.kpis.profit) : '$0'} />
+                  <CompactMetric label="Market" value={hasMounted ? formatPercent(context.kpis.marketShare) : '0%'} />
+                  <CompactMetric label="Brand" value={hasMounted ? formatPercent(context.kpis.brandAwareness) : '0%'} />
                 </div>
               </div>
             </div>
@@ -541,7 +546,18 @@ function NavSheetSection({
   );
 }
 
-const RUN_DESTINATION_PREFIXES = ['/sim/q1', '/sim/q2', '/sim/q3', '/sim/q4', '/sim/campaigns', '/sim/pipeline', '/sim/analytics'];
+const RUN_DESTINATION_PREFIXES = [
+  '/sim/setup',
+  '/sim/strategy',
+  '/sim/debrief',
+  '/sim/q1',
+  '/sim/q2',
+  '/sim/q3',
+  '/sim/q4',
+  '/sim/campaigns',
+  '/sim/pipeline',
+  '/sim/analytics',
+];
 
 function withoutRunDestinationLinks(items: NavItem[]) {
   return items.filter((item) => !RUN_DESTINATION_PREFIXES.some((prefix) => item.href === prefix || item.href.startsWith(`${prefix}/`)));

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useMachine } from '@xstate/react';
-import { simulationMachine, SimulationEvent, HydrationPatch, createInitialSimulationContext } from '@/lib/simMachine';
+import { createInitialSimulationContext, simulationMachine, SimulationEvent, HydrationPatch, type SimulationContext } from '@/lib/simMachine';
 import { StateFrom } from 'xstate';
 import { logger } from '@/lib/logger';
-import { mergeSimulationContext } from '@/lib/simulationHydration';
+import { PLAY_STEPS, type PlayStepId } from '@/lib/playSteps';
+import { getCurrentProgressRouteFromSnapshot, machinePhaseForRoute } from '@/lib/simulationProgress';
 
 type SimulationMachineState = StateFrom<typeof simulationMachine>;
 
@@ -54,9 +55,25 @@ function hasMeaningfulSimulationState(context: Partial<HydrationPatch> | undefin
   return false;
 }
 
+function isKnownPlayStep(value: unknown): value is PlayStepId {
+  return typeof value === "string" && (PLAY_STEPS as readonly string[]).includes(value);
+}
+
+function isEmptyInitialSetup(context: Partial<HydrationPatch> | undefined): boolean {
+  if (!context) return true;
+  if (isKnownPlayStep(context.playStep) && context.playStep !== "setup") return false;
+  return !hasMeaningfulSimulationState(context);
+}
+
+export function hasResumableSavedRun(snapshot: unknown): boolean {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return false;
+  return !isEmptyInitialSetup(snapshot as Partial<HydrationPatch>);
+}
+
 export function SimulationProvider({ children }: { children: React.ReactNode }) {
   const [hydratedContext, setHydratedContext] = useState<HydrationPatch>({});
   const [hydrationError, setHydrationError] = useState<string | null>(null);
+  const [storageLoaded, setStorageLoaded] = useState(false);
 
   useEffect(() => {
     try {
@@ -86,6 +103,8 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
       logger.error('Failed to parse saved simulation state', e);
       setHydrationError('Saved simulation state is corrupted.');
       setHydratedContext({});
+    } finally {
+      setStorageLoaded(true);
     }
   }, []);
 
@@ -111,7 +130,7 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <SimulationMachineProvider hydratedContext={hydratedContext}>
+    <SimulationMachineProvider hydratedContext={hydratedContext} storageLoaded={storageLoaded}>
       {children}
     </SimulationMachineProvider>
   );
@@ -120,51 +139,45 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
 function SimulationMachineProvider({
   children,
   hydratedContext,
+  storageLoaded,
 }: {
   children: React.ReactNode;
   hydratedContext: HydrationPatch;
+  storageLoaded: boolean;
 }) {
   const [state, send] = useMachine(simulationMachine);
-  const hasAppliedHydration = useRef(false);
-  const [isReady, setIsReady] = useState(Object.keys(hydratedContext).length === 0);
+  const appliedSnapshot = useRef<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (!hasAppliedHydration.current) {
-      hasAppliedHydration.current = true;
+    if (!storageLoaded) return;
 
-      if (Object.keys(hydratedContext).length > 0) {
-        send({ type: 'HYDRATE_CONTEXT', context: hydratedContext });
-      }
+    const fingerprint = JSON.stringify(hydratedContext);
+    if (appliedSnapshot.current === fingerprint) return;
+    appliedSnapshot.current = fingerprint;
 
-      setIsReady(true);
+    if (Object.keys(hydratedContext).length > 0) {
+      const route = getCurrentProgressRouteFromSnapshot(hydratedContext as Partial<SimulationContext>);
+      send({
+        type: 'RESTORE_SIMULATION',
+        context: hydratedContext,
+        phase: machinePhaseForRoute(route),
+      });
     }
-  }, [hydratedContext, send]);
+
+    setIsReady(true);
+  }, [hydratedContext, send, storageLoaded]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !isReady) return;
 
-    if (!hasMeaningfulSimulationState(state.context)) {
+    if (isEmptyInitialSetup(state.context)) {
       window.localStorage.removeItem('cmo-sim-state-v2');
       return;
     }
 
-    const currentPath = window.location.pathname;
-    const isSimulatorSetupPath = currentPath.startsWith('/sim/setup');
-
-    if (isSimulatorSetupPath) {
-      const baseContext = state.context;
-      const setupShape = {
-        ...baseContext,
-        strategy: {
-          ...baseContext.strategy,
-        },
-      };
-      window.localStorage.setItem('cmo-sim-state-v2', JSON.stringify(setupShape));
-      return;
-    }
-
     window.localStorage.setItem('cmo-sim-state-v2', JSON.stringify(state.context));
-  }, [state.context]);
+  }, [isReady, state.context]);
 
   return (
     <SimulationReactContext.Provider value={{ state, send, isReady }}>

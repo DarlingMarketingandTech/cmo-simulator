@@ -113,3 +113,15 @@ describe("legacy paths", () => {
     expect(legacyPathOpensPlay("/sim/q2/debrief")).toBe(true);
   });
 });
+
+import { createInitialSimulationContext } from "../simMachine";
+import { mergeSimulationContext } from "../simulationHydration";
+
+test("hydration keeps a saved play step and rejects an unknown one", () => {
+  const base = createInitialSimulationContext();
+  expect(base.playStep).toBe("setup");
+  const kept = mergeSimulationContext(base, { playStep: "q2-plan" });
+  expect(kept.playStep).toBe("q2-plan");
+  const reset = mergeSimulationContext(base, { playStep: "not-a-step" as never });
+  expect(reset.playStep).toBe("setup");
+});

@@ -32,8 +32,6 @@ import {
   Crosshair,
   Compass,
   AlertTriangle,
-  CalendarCheck,
-  Mail,
   Megaphone
 } from "lucide-react";
 import { SimulationContext } from "@/lib/simMachine";
@@ -165,7 +163,6 @@ export function EnhancedDebrief({
     ["setup", "strategy", "Q1", "Q2", "Q3", "Q4"].includes(row.phase),
   );
   const overallRow = scoreBreakdowns.find((row) => row.phase === "debrief");
-  const contactUrl = process.env.NEXT_PUBLIC_COMPANY_CONTACT_URL || "https://darlingmartech.com/contact?source=cmo-simulator";
 
   // Phase 3 Calculations
   // 1. Archetype Assignment
@@ -779,22 +776,6 @@ export function EnhancedDebrief({
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Bring the briefing into a real conversation about budget allocation, positioning, channel risk, and the next 90 days of execution.
             </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <a
-              href={contactUrl}
-              className="inline-flex h-12 items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-black text-white hover:bg-slate-800"
-            >
-              <CalendarCheck className="mr-2 h-4 w-4" />
-              Request Review
-            </a>
-            <a
-              href={`mailto:?subject=${encodeURIComponent("CMO Simulator Growth Briefing")}&body=${encodeURIComponent(report.growthLeaderTakeaway)}`}
-              className="inline-flex h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-900 hover:bg-slate-50"
-            >
-              <Mail className="mr-2 h-4 w-4" />
-              Email Takeaway
-            </a>
           </div>
         </div>
       </section>

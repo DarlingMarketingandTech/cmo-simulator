@@ -10,15 +10,16 @@ For a **fine-grained formula and variable reference** (maintained alongside the 
 
 ## What’s in the product
 
-- **Scenarios & setup** (`/sim/setup`): Turnaround, Hyper-Growth SaaS, and Challenger presets with budgets and starting KPIs; company identity, landscape, and strategy inputs.
-- **Quarter play** (`/sim/q1` … `q4`): Add/remove tactics, triggers wildcards, complete quarters to advance the machine.
-- **Forecast** (quarter UI): Projects outcomes using the same `processQuarterAdvance` path as live play, with downside/base/upside scenario adjustments.
-- **Executive / board messaging**: Contextual pressure copy from KPIs and quarter (`ExecutivePressure`); engine also tracks **stress meters** and flow state on `engineState` for pipeline/analytics views.
-- **Wildcards & morale**: Events with choices; impacts can affect KPIs plus **morale** and **brandEquity** on context.
-- **Big bets (Q3)**: Randomized success/failure from risk-weighted probability (`talentMarket.ts`).
-- **Debrief & PDF**: End-of-run summary; downloadable PDF via **@react-pdf/renderer** (`/sim/debrief`).
-- **Persistence**: Authenticated users can save/load runs through Supabase (`cmo_simulation_runs` and related RPC/migrations).
-- **Themes**: Brand/theme selection via user profile (`user_profiles`).
+- **Home** (`/sim`): Resume the run saved on this device, or start a new one.
+- **Play** (`/sim/play`): One screen for the year. The saved step decides the content. The actions are Back, Continue, and Quit.
+- **Steps:** Setup, Strategy, Q1 plan, Q1 review, Q2 plan, Q2 review, Q3 plan, Q3 review, Q4 plan, Q4 review, then a final menu.
+- **Quarter plan:** Tactics. Q2 adds a wildcard and an optional hire. Q3 adds a wildcard and an optional big bet. Q4 adds a wildcard.
+- **Quarter review:** Campaign result, pipeline, and what the choices changed.
+- **Forecast** (inside the quarter plan): Projects outcomes using the same `processQuarterAdvance` path as live play.
+- **Debrief:** End-of-run summary and PDF. Request Review and Email Takeaway are removed until the new site exists.
+- **Persistence:** The run stays in `cmo-sim-state-v2` on this device. Signed-in users can also save through Supabase. Guest play does not post `/api/simulation-events`.
+
+Old addresses `/sim/setup`, `/sim/strategy`, `/sim/q1`–`q4`, `/sim/debrief`, `/sim/campaigns`, `/sim/pipeline`, and `/sim/analytics` open `/sim/play` on the current step. They are not a second way to jump the year.
 
 Some narrative in **[docs/design/SIMULATION_DESIGN_SPEC.md](./docs/design/SIMULATION_DESIGN_SPEC.md)** describes stretch goals (e.g. full crisis engine, tech tree, synthetic personas). Treat that doc as **design intent**; behavior is defined by the implementation and **SIMULATION_ENGINE_REFERENCE.md**.
 
@@ -100,12 +101,11 @@ src/
 │   ├── landing/                 # Marketing landing
 │   ├── auth/                    # sign-in (includes signup mode), callback, update-password
 │   ├── sim/
-│   │   ├── setup/               # Scenario & company setup
-│   │   ├── strategy/            # Strategy session
-│   │   ├── q1/ … q4/            # Quarterly operating UI
-│   │   ├── debrief/             # Results & PDF
-│   │   ├── analytics/ pipeline/ campaigns/ credits/ simulations/
-│   │   └── layout.tsx           # Sim shell
+│   │   ├── page.tsx             # Home: Resume or Start new
+│   │   ├── play/                # The only play screen
+│   │   ├── setup/ strategy/ q1/ … q4/ debrief/ campaigns/ pipeline/ analytics/
+│   │   │                        # Legacy addresses; they redirect to /sim/play
+│   │   └── layout.tsx           # Sim shell. Hidden on /sim/play.
 │   ├── api/
 │   │   ├── simulations/         # Save, load, list runs
 │   │   ├── profile/             # user_profiles
@@ -117,6 +117,8 @@ src/
 │   └── ui/                      # Shared primitives
 ├── engine/                      # Adstock, saturation, synergy, tick
 ├── lib/
+│   ├── playSteps.ts             # Ordered play steps, Back, Continue gates
+│   ├── quarterReview.ts         # Review facts for the quarter just played
 │   ├── simMachine.ts            # XState machine & processQuarterAdvance
 │   ├── marketConditions.ts      # Quarter market inputs
 │   ├── simulationForecast.ts    # Forecast & scenarios
@@ -133,11 +135,14 @@ src/
 
 | Doc | Purpose |
 |-----|---------|
+| [docs/PROGRESS_AND_ROADMAP.md](./docs/PROGRESS_AND_ROADMAP.md) | What is done, what to build next, where scoring changes go, and the UI polish pass |
+| [docs/superpowers/specs/2026-11-01-linear-play-flow-design.md](./docs/superpowers/specs/2026-11-01-linear-play-flow-design.md) | Approved play-flow design |
+| [docs/superpowers/plans/2026-11-01-linear-play-flow.md](./docs/superpowers/plans/2026-11-01-linear-play-flow.md) | Implementation plan for that flow |
 | [docs/SIMULATION_ENGINE_REFERENCE.md](./docs/SIMULATION_ENGINE_REFERENCE.md) | Formulas, variables, and code paths for the simulation |
-| [docs/SIMULATION_FLOW_AND_PEDAGOGY.md](./docs/SIMULATION_FLOW_AND_PEDAGOGY.md) | User journey by stage, actions/options per route, debrief outputs, teaching intent |
+| [docs/SIMULATION_FLOW_AND_PEDAGOGY.md](./docs/SIMULATION_FLOW_AND_PEDAGOGY.md) | Teaching intent by stage. Route table is the machine map under the new play screen. |
 | [QUICKSTART.md](./QUICKSTART.md) | Step-by-step local setup (verify paths against this README) |
 | [setup-database.md](./setup-database.md) | Legacy enhanced schema notes |
-| [docs/design/SIMULATION_DESIGN_SPEC.md](./docs/design/SIMULATION_DESIGN_SPEC.md) | Product/design vision |
+| [docs/design/SIMULATION_DESIGN_SPEC.md](./docs/design/SIMULATION_DESIGN_SPEC.md) | Older product vision. Stretch goals, not current behavior. |
 
 ## Deployment
 
@@ -152,12 +157,16 @@ Use **`npm run build:cloudflare`** (see `package.json`) and the OpenNext + **`no
 
 Community reference: [OpenNext Cloudflare](https://opennext.js.org/cloudflare/get-started).
 
-## Roadmap (ideas)
+## Roadmap
 
-- Align **QUICKSTART.md** and **setup-database.md** fully with migrations-first DB setup
-- Tutorial/onboarding pass tied to first `/sim/setup` visit
-- Deeper use of engine **`competitorSpend`** in the tick (today mainly forecast/context)
-- Achievements, sharing, and exports as needed for your GTM
+The build order is in [docs/PROGRESS_AND_ROADMAP.md](./docs/PROGRESS_AND_ROADMAP.md):
+
+1. Finish and ship the linear play flow.
+2. Make each existing choice change the quarter review and the final result.
+3. Then add variables and widen the score range.
+4. Then restyle the screens so the product does not look like a generic generated UI.
+
+Do not start the visual pass by adding more cards, gradients, or icon rows. Use the tasteskill in `design-taste-frontend` for that pass.
 
 ## Contributing
 

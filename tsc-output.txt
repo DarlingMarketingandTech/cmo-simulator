@@ -1,4 +1,0 @@
-src/lib/enhancedWildcards.ts(3,70): error TS2459: Module '"./simMachine"' declares 'MarketLandscape' locally, but it is not exported.
-src/lib/enhancedWildcards.ts(3,92): error TS2459: Module '"./simMachine"' declares 'TimeHorizon' locally, but it is not exported.
-src/lib/testing/mockData.ts(24,7): error TS2322: Type '"stable"' is not assignable to type 'MarketLandscape | undefined'.
-src/lib/testing/mockData.ts(25,7): error TS2322: Type '"short-term"' is not assignable to type 'TimeHorizon | undefined'.

@@ -70,7 +70,7 @@ export function QuarterPlanStep({
   onFinalize: () => void;
 }) {
   const { context, addTactic, removeTactic, triggerWildcard, respondToWildcard, makeBigBet, send } = useSimulation();
-  const [selectedTactics, setSelectedTactics] = useState<Tactic[]>(context.quarters[quarter].tactics || []);
+  const selectedTactics = context.quarters[quarter].tactics || [];
   const [currentWildcard, setCurrentWildcard] = useState<EnhancedWildcardEvent | null>(null);
   const [showWildcardModal, setShowWildcardModal] = useState(false);
   const [talentCandidates, setTalentCandidates] = useState<TalentCandidate[]>([]);
@@ -81,10 +81,6 @@ export function QuarterPlanStep({
   const [showBigBetModal, setShowBigBetModal] = useState(false);
   const copy = PLAN_COPY[quarter];
   const offersWildcard = quarter !== "Q1";
-
-  useEffect(() => {
-    setSelectedTactics(context.quarters[quarter].tactics || []);
-  }, [context.quarters, quarter]);
 
   const quarterBudget = Math.floor((context.totalBudget || 500000) / 4);
   const usedBudget = selectedTactics.reduce((sum, tactic) => sum + (tactic.cost || 0), 0);
@@ -121,12 +117,11 @@ export function QuarterPlanStep({
 
   const handleAddTactic = (tactic: Tactic) => {
     if (selectedTactics.some((selected) => selected.id === tactic.id)) return;
-    setSelectedTactics((current) => [...current, tactic]);
+    if ((tactic.cost || 0) > remainingBudget) return;
     addTactic(quarter, tactic);
   };
 
   const handleRemoveTactic = (tacticId: string) => {
-    setSelectedTactics((current) => current.filter((tactic) => tactic.id !== tacticId));
     removeTactic(quarter, tacticId);
   };
 

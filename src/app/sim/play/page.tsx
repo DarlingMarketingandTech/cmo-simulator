@@ -135,7 +135,7 @@ function FinalMenuStep({
 
 export default function PlayPage() {
   const router = useRouter();
-  const { context, send, startSimulation, completeStrategySession, completeQuarter, restartSimulation } = useSimulation();
+  const { context, send, isReady, startSimulation, completeStrategySession, completeQuarter, restartSimulation } = useSimulation();
   const [showDebrief, setShowDebrief] = useState(false);
   const step = context.playStep;
   const canContinue = canContinueFromContext(context, step);
@@ -145,6 +145,13 @@ export default function PlayPage() {
   }, [step]);
 
   const leaveHome = () => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("cmo-sim-state-v2", JSON.stringify(context));
+      } catch (error) {
+        console.error("Failed to save the run on this device", error);
+      }
+    }
     router.push("/sim");
   };
 
@@ -176,6 +183,14 @@ export default function PlayPage() {
     setShowDebrief(false);
     restartSimulation();
   };
+
+  if (!isReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-950">
+        <p className="text-sm text-slate-600">Loading your saved run…</p>
+      </div>
+    );
+  }
 
   const frame = (children: ReactNode) => (
     <PlayFrame
