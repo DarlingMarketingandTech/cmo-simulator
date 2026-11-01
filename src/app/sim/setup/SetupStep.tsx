@@ -29,7 +29,6 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { usePageTracking, useSimulationTracking } from '@/hooks/useAnalytics';
 import { useSimulation } from '@/hooks/useSimulation';
 import { logger } from '@/lib/logger';
-import type { PlayStepId } from '@/lib/playSteps';
 import { createInitialSimulationContext, type HydrationPatch, type SimulationContext } from '@/lib/simMachine';
 import { saveSimulationSnapshot } from '@/lib/saveSimulationSnapshot';
 import { recordSimulationEvent } from '@/lib/simulationTelemetry';
@@ -262,39 +261,6 @@ function formatBudget(value: number) {
   return `$${(value / 1_000_000).toFixed(1)}M`;
 }
 
-function savedMachinePhase(phase: string): 'idle' | 'strategySession' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'debrief' {
-  if (
-    phase === 'strategySession'
-    || phase === 'Q1'
-    || phase === 'Q2'
-    || phase === 'Q3'
-    || phase === 'Q4'
-    || phase === 'debrief'
-  ) {
-    return phase;
-  }
-  return 'idle';
-}
-
-function playStepForSavedPhase(phase: ReturnType<typeof savedMachinePhase>): PlayStepId {
-  switch (phase) {
-    case 'strategySession':
-      return 'strategy';
-    case 'Q1':
-      return 'q1-plan';
-    case 'Q2':
-      return 'q2-plan';
-    case 'Q3':
-      return 'q3-plan';
-    case 'Q4':
-      return 'q4-plan';
-    case 'debrief':
-      return 'final-menu';
-    default:
-      return 'setup';
-  }
-}
-
 const EMPTY_SETUP_DATA: SetupData = {
   scenarioId: null,
   companyName: '',
@@ -397,7 +363,7 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
   }, [step, trackMilestone]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || stayOnPlay) return;
 
     void (async () => {
       try {
@@ -413,7 +379,7 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
         logger.error('Failed to load latest saved run', error);
       }
     })();
-  }, [user]);
+  }, [stayOnPlay, user]);
 
   useEffect(() => {
     if (user) return;
@@ -800,18 +766,7 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
   };
 
   const resumeSavedRun = () => {
-    if (!savedRunContext) return;
-    if (stayOnPlay) {
-      const phase = savedMachinePhase(savedRunPhase);
-      send({
-        type: 'RESTORE_SIMULATION',
-        context: savedRunContext as HydrationPatch,
-        phase,
-      });
-      send({ type: 'SET_PLAY_STEP', playStep: playStepForSavedPhase(phase) });
-      localStorage.setItem('cmo-sim-state-v2', JSON.stringify(savedRunContext));
-      return;
-    }
+    if (stayOnPlay || !savedRunContext) return;
     send({ type: 'HYDRATE_CONTEXT', context: savedRunContext as HydrationPatch });
     localStorage.setItem('cmo-sim-state-v2', JSON.stringify(savedRunContext));
     navigateAfterHydration(resolveSimulationPath(savedRunPhase));
@@ -866,7 +821,7 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
             <Button type="button" variant="outline" className="border-slate-200 bg-white text-slate-700" onClick={launchGuidedDemo}>
               Start Guided Demo Run
             </Button>
-            {hasSavedRun ? (
+            {!stayOnPlay && hasSavedRun ? (
               <Button
                 type="button"
                 variant="outline"
