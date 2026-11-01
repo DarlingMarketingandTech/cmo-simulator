@@ -6,8 +6,10 @@ const mockToPersistedRunPayload = jest.fn();
 const mockDispatchSaveSync = jest.fn();
 const mockIsBrowserOffline = jest.fn();
 
-jest.mock("@/lib/simAuth", () => ({
-  getSimAuthSession: () => mockGetSimAuthSession(),
+jest.mock("@/lib/platform/adapters/supabase/authSessionPort", () => ({
+  defaultAuthSessionPort: {
+    getSession: () => mockGetSimAuthSession(),
+  },
 }));
 
 jest.mock("@/lib/simulationPersistence", () => ({
@@ -123,4 +125,3 @@ describe("saveSimulationSnapshot", () => {
     );
   });
 });
-

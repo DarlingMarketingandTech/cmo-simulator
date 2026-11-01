@@ -40,4 +40,12 @@ This note maps **where truth lives** for the playable simulation. Product copy a
 | Browser retry + sync UI events | `src/lib/saveSimulationSnapshot.ts`, `src/lib/saveSimulationSync.ts` |
 | Public scorecard publish/unpublish + leaderboard feed | `src/app/api/simulations/share/route.ts`, `src/app/api/leaderboard/route.ts`, `src/app/api/scorecards/[slug]/route.ts` |
 
+## Platform seam layer (migration prep)
+
+| Concern | Authoritative source |
+|--------|----------------------|
+| Port contracts for auth/session, persistence, profile, social | `src/lib/platform/ports.ts` |
+| Supabase auth-session adapter | `src/lib/platform/adapters/supabase/authSessionPort.ts` |
+| Supabase save-snapshot adapter | `src/lib/platform/adapters/supabase/simulationPersistencePort.ts` |
+
 When documentation disagrees with these files, **trust the code paths above** and update the docs.

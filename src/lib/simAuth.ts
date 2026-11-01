@@ -1,11 +1,9 @@
 import type { AuthError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { defaultAuthSessionPort } from "@/lib/platform/adapters/supabase/authSessionPort";
+import type { SimAuthSession } from "@/lib/platform/ports";
 
-export interface SimAuthSession {
-  userId: string;
-  email: string;
-  signedInAt: string;
-}
+export type { SimAuthSession };
 
 /** Trim and collapse internal whitespace for signup name fields. */
 export function normalizePersonName(raw: string): string {
@@ -62,9 +60,7 @@ function toSession(
 }
 
 export async function getSimAuthSession(): Promise<SimAuthSession | null> {
-  const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
-  return toSession(data.session);
+  return defaultAuthSessionPort.getSession();
 }
 
 export async function signInSimAuth(email: string, password: string): Promise<SimAuthSession> {
