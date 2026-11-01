@@ -38,9 +38,9 @@ On 2026-11-01 the working tree typechecked and Jest reported 18 suites, 54 tests
 
 ## What not to treat as done
 
-- The overall score for one fixed four-quarter plan still sits between 65 and 67 in every scenario. Profit on that baseline is still negative. Do not "fix" that by editing the snapshot without a deliberate model change.
+- The overall score for one fixed four-quarter plan now runs from 46 to 67. Profit on that baseline is still negative. Do not collapse the band by editing the snapshot without a deliberate model change.
 - New campaign variables are not in the product yet.
-- The screens still look like a generated admin template: rounded cards, slate borders, icon rows, and a sidebar that explains itself. That is the next visual pass, not a reason to add more panels.
+- The play frame, Home, the landing page, and the quarter reserve use the achromatic ledger. Tactic rows, the wildcard dialog, and the debrief still use the older chrome.
 - `nextjs-portal` is the Next.js dev-tools overlay. It appears only while `npm run dev` is running. It is not a product control.
 
 ## Phase A. Finish the playable year

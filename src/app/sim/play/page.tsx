@@ -8,7 +8,6 @@ import { EnhancedDebrief } from "@/components/simulation/EnhancedDebrief";
 import { PlayFrame } from "@/components/simulation/PlayFrame";
 import { QuarterPlanStep } from "@/components/simulation/QuarterPlanStep";
 import { QuarterReviewStep } from "@/components/simulation/QuarterReviewStep";
-import { Button } from "@/components/ui/button";
 import { useSimulation } from "@/hooks/useSimulation";
 import {
   canContinuePlayStep,
@@ -20,6 +19,7 @@ import {
 } from "@/lib/playSteps";
 import type { SimulationContext } from "@/lib/simMachine";
 import { buildSimulationScoreBreakdowns, deriveSimulationRecommendations } from "@/lib/simulationIntelligence";
+import { calculateOverallScore } from "@/lib/simulationInsights";
 
 const STEP_TITLES: Record<PlayStepId, string> = {
   setup: "Setup",
@@ -104,19 +104,22 @@ function FinalMenuStep({
   const { context } = useSimulation();
   const scoreBreakdowns = buildSimulationScoreBreakdowns(context);
   const recommendations = deriveSimulationRecommendations(context, scoreBreakdowns);
+  const overallScore = calculateOverallScore(context);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
+      <p className="text-sm text-[#6b6b6b]">Year score</p>
+      <p className="font-mono text-[30px] font-medium tabular-nums leading-none text-[#1d5fbf]">{overallScore}</p>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={onDebrief}>
+        <button type="button" className="inline-flex h-9 items-center rounded-md bg-[#141414] px-4 text-sm font-medium text-white" onClick={onDebrief}>
           Debrief
-        </Button>
-        <Button type="button" variant="outline" onClick={onStartNew}>
+        </button>
+        <button type="button" className="inline-flex h-9 items-center rounded-md bg-[#e5e5e5] px-4 text-sm font-medium" onClick={onStartNew}>
           Start new
-        </Button>
-        <Button type="button" variant="ghost" onClick={onHome}>
+        </button>
+        <button type="button" className="inline-flex h-9 items-center rounded-md px-4 text-sm font-medium text-[#6b6b6b]" onClick={onHome}>
           Home
-        </Button>
+        </button>
       </div>
       {showDebrief ? (
         <EnhancedDebrief

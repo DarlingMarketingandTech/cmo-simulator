@@ -27,11 +27,11 @@ export interface ExecutiveScoreRubric {
 
 /** Weights sum to 1; drive `calculateOverallScore`. */
 export const EXECUTIVE_RUBRIC_WEIGHTS: Record<ExecutiveRubricKey, number> = {
-  growth_quality: 0.26,
-  efficiency: 0.2,
-  strategic_coherence: 0.22,
-  resilience: 0.18,
-  finish_quality: 0.14,
+  growth_quality: 0.42,
+  efficiency: 0.24,
+  strategic_coherence: 0.12,
+  resilience: 0.12,
+  finish_quality: 0.1,
 };
 
 export const EXECUTIVE_RUBRIC_LABELS: Record<ExecutiveRubricKey, string> = {
@@ -80,12 +80,12 @@ export function calculateExecutiveScoreRubric(context: SimulationContext): Execu
   const revenueGrowthRatio = (R[3] - R[0]) / r0;
   const growthNorm = scale01(revenueGrowthRatio, 0.75) * 100;
   const shareFinishNorm = scale01(S[3], 22) * 100;
-  const revenueMassNorm = scale01(totalRevenue, 1_650_000) * 100;
+  const revenueMassNorm = scale01(totalRevenue, 1_200_000) * 100;
   const satLevelNorm = scale01(C.reduce((sum, v) => sum + v, 0) / 4, 80) * 100;
   const satMomentumNorm = scale01((C[3] - C[0] + 30) / 2, 40) * 100;
 
   const growth_quality = toScore(
-    0.34 * growthNorm + 0.22 * shareFinishNorm + 0.22 * revenueMassNorm + 0.14 * satLevelNorm + 0.08 * satMomentumNorm,
+    0.1 * growthNorm + 0.08 * shareFinishNorm + 0.72 * revenueMassNorm + 0.06 * satLevelNorm + 0.04 * satMomentumNorm,
   );
 
   const profitPerDeployed = deployed > 0 ? totalProfit / deployed : 0;
@@ -94,7 +94,7 @@ export function calculateExecutiveScoreRubric(context: SimulationContext): Execu
   const utilNorm = clamp(100 - utilDistance * 85, 12, 100);
   const margins = R.map((rev, i) => (rev > 0 ? clamp(P[i] / rev, -1, 1) : 0));
   const avgMargin = margins.reduce((sum, v) => sum + v, 0) / 4;
-  const marginNorm = normalizeRange(avgMargin, -0.3, 0.18) * 100;
+  const marginNorm = normalizeRange(avgMargin, -1.5, 0.25) * 100;
   const lossQuarterCount = P.filter((value) => value < 0).length;
   const lossPenaltyNorm = clamp(100 - lossQuarterCount * 14, 44, 100);
 
@@ -181,7 +181,18 @@ export function buildTeachingReport(context: SimulationContext): TeachingReport 
     rm != null
       ? ` Latest engine tick: difficulty ${rm.difficultyLevel}; blended SOV ${(rm.blendedShareOfVoice * 100).toFixed(1)}%; traffic modifiers — competitive ×${rm.competitiveDragMultiplier.toFixed(3)}, audience fit ×${rm.audienceFitMultiplier.toFixed(3)}, repeat-tactic fatigue ×${rm.tacticFatigueMultiplier.toFixed(3)}.`
       : "";
-  const why = `The strongest revenue contribution came in ${strongestQuarter.quarter}, with tactical volume peaking in ${mostTacticsQuarter.quarter}. Rubric highlights: growth ${rubric.growth_quality}, efficiency ${rubric.efficiency}, coherence ${rubric.strategic_coherence}, resilience ${rubric.resilience}, finish ${rubric.finish_quality} (each out of 100).${whyRuntime}`;
+  const allocation = context.strategy.budgetAllocation;
+  const brandShare = typeof allocation?.brandAwareness === "number" ? allocation.brandAwareness : 0;
+  const demandShare = typeof allocation?.leadGeneration === "number" ? allocation.leadGeneration : 0;
+  const conversionShare = typeof allocation?.conversionOptimization === "number"
+    ? allocation.conversionOptimization
+    : typeof allocation?.customerRetention === "number"
+      ? allocation.customerRetention
+      : 0;
+  const posture = brandShare + demandShare + conversionShare > 0
+    ? ` Budget posture was ${brandShare}% brand, ${demandShare}% demand, and ${conversionShare}% conversion, and that split scaled channel yield before the quarter score.`
+    : "";
+  const why = `The strongest revenue contribution came in ${strongestQuarter.quarter}, with tactical volume peaking in ${mostTacticsQuarter.quarter}.${posture} Rubric highlights: growth ${rubric.growth_quality}, efficiency ${rubric.efficiency}, coherence ${rubric.strategic_coherence}, resilience ${rubric.resilience}, finish ${rubric.finish_quality} (each out of 100).${whyRuntime}`;
   const tradeoff = `Resource concentration improved execution depth but increased exposure to saturation and wildcard volatility. Board pressure balance (CEO/CFO/CMO) became the limiting factor in late quarters.`;
   const nextMove = `Run a replay with one deliberate portfolio shift: preserve your top-performing channel, reallocate 15-20% of spend to under-used channels, and compare rubric gains in efficiency and coherence—not only headline revenue.`;
   const growthLeaderTakeaway = `Use this simulation like a planning lab: tie budget decisions to explicit hypotheses, then judge outcomes on durable growth quality and execution resilience, not a single headline KPI.`;

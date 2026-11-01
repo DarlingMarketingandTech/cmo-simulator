@@ -21,4 +21,4 @@ Access 47k tokens of past work via get_observations([IDs]) or mem-search skill.
 
 Read [docs/PROGRESS_AND_ROADMAP.md](docs/PROGRESS_AND_ROADMAP.md) before changing the play path, scoring, or visual design.
 
-The player path is Home (`/sim`) and one screen (`/sim/play`). Do not add sidebar destinations for quarters, campaigns, pipeline, or analytics. Scoring edits start in `processQuarterAdvance`, then `buildSimulationScoreBreakdowns`, then the review copy. Do not widen the 65–67 baseline until that roadmap says to.
+The player path is Home (`/sim`) and one screen (`/sim/play`). Do not add sidebar destinations for quarters, campaigns, pipeline, or analytics. Scoring edits start in `processQuarterAdvance`, then `buildSimulationScoreBreakdowns`, then the review copy. The fixed-plan overall score spans 46–67. Do not collapse that band without a new baseline snapshot.

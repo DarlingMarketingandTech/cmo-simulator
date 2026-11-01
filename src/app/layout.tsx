@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import '@/lib/env'; // Validate environment variables on startup
 import { PwaRegistrar } from '@/components/PwaRegistrar';
@@ -65,8 +66,11 @@ export const metadata: Metadata = {
   },
 };
 
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
+
 export const viewport: Viewport = {
-  themeColor: '#f4f7fb',
+  themeColor: '#f2f4f7',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -80,7 +84,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased font-sans">
+      <body className={`${geist.variable} ${geistMono.variable} antialiased`} style={{ fontFamily: "var(--font-geist), Inter, system-ui, sans-serif", background: "#f2f4f7", color: "#0a0a0a" }}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
