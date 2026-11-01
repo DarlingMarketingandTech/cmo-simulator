@@ -45,10 +45,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to load leaderboard." }, { status: 500, headers });
     }
 
+    const rows = Array.isArray(data) ? data : [];
+
     return NextResponse.json(
       {
         ok: true,
-        rows: (data ?? []).map((row, index) => ({
+        rows: rows.map((row: Record<string, unknown>, index: number) => ({
           rank: index + 1,
           ...row,
         })),

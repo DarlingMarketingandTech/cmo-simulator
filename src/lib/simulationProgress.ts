@@ -1,4 +1,4 @@
-import type { SimulationContext } from '@/lib/simMachine';
+import { createInitialSimulationContext, type SimulationContext } from '@/lib/simMachine';
 
 export type SimulatorProgressRoute =
   | '/sim/setup'
@@ -45,6 +45,25 @@ export function isQuarterFinalized(context: SimulationContext, quarter: 'Q1' | '
   );
 }
 
+export const ROUTE_PRIORITY: Record<SimulatorProgressRoute, number> = {
+  '/sim/setup': 0,
+  '/sim/strategy': 1,
+  '/sim/q1': 2,
+  '/sim/q2': 3,
+  '/sim/q3': 4,
+  '/sim/q4': 5,
+  '/sim/debrief': 6,
+};
+
+export function isEmptySimulationContext(context: SimulationContext) {
+  return !context.simulationId
+    && !context.scenarioId
+    && !context.strategy?.companyName
+    && !context.strategy?.targetAudience
+    && !context.strategy?.brandPositioning
+    && !context.strategy?.primaryChannels?.length;
+}
+
 export function resolveProgressRoute(context: SimulationContext): SimulatorProgressRoute {
   if (!isSetupReady(context)) return '/sim/setup';
   if (!isStrategyReady(context)) return '/sim/strategy';
@@ -53,6 +72,34 @@ export function resolveProgressRoute(context: SimulationContext): SimulatorProgr
   if (!isQuarterFinalized(context, 'Q3')) return '/sim/q3';
   if (!isQuarterFinalized(context, 'Q4')) return '/sim/q4';
   return '/sim/debrief';
+}
+
+export function getCurrentProgressRouteFromSnapshot(snapshot: Partial<SimulationContext> | null | undefined): SimulatorProgressRoute {
+  if (!snapshot) return '/sim/setup';
+
+  const context = mergeSnapshotWithInitialContext(snapshot);
+  return resolveProgressRoute(context);
+}
+
+function mergeSnapshotWithInitialContext(snapshot: Partial<SimulationContext>): SimulationContext {
+  const base = createInitialSimulationContext();
+  const merged = {
+    ...base,
+    ...snapshot,
+    strategy: {
+      ...base.strategy,
+      ...(snapshot.strategy ?? {}),
+    },
+    quarters: {
+      Q1: { ...base.quarters.Q1, ...(snapshot.quarters?.Q1 ?? {}) },
+      Q2: { ...base.quarters.Q2, ...(snapshot.quarters?.Q2 ?? {}) },
+      Q3: { ...base.quarters.Q3, ...(snapshot.quarters?.Q3 ?? {}) },
+      Q4: { ...base.quarters.Q4, ...(snapshot.quarters?.Q4 ?? {}) },
+    },
+    kpis: { ...base.kpis, ...(snapshot.kpis ?? {}) },
+  };
+
+  return merged;
 }
 
 export function isGuardedSimulatorRoute(pathname: string) {
