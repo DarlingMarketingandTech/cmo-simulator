@@ -108,4 +108,8 @@ describe("legacy paths", () => {
     expect(legacyPathOpensPlay("/sim/play")).toBe(false);
     expect(legacyPathOpensPlay("/sim")).toBe(false);
   });
+
+  test("a nested debrief path also opens play", () => {
+    expect(legacyPathOpensPlay("/sim/q2/debrief")).toBe(true);
+  });
 });

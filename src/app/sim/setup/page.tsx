@@ -1,7 +1,12 @@
 "use client";
 
-import { SetupStep } from "./SetupStep";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SetupPage() {
-  return <SetupStep />;
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/sim/play");
+  }, [router]);
+  return null;
 }

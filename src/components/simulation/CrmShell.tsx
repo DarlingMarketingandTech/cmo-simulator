@@ -11,10 +11,8 @@ import { MobileInstallPrompt } from '@/components/simulation/MobileInstallPrompt
 import { SaveSyncStatus } from '@/components/simulation/SaveSyncStatus';
 import {
   CORE_NAV_ITEMS,
-  CRM_NAV_ITEMS,
   MOBILE_ACCOUNT_NAV_ITEM,
   MOBILE_MODE_NAV_ITEMS,
-  QUARTER_NAV_ITEMS,
   activeHref,
   mobileModeItemForPath,
   primaryNavItemForPath,
@@ -30,13 +28,12 @@ import {
   MobileSheetTitle,
 } from '@/components/ui/mobile-sheet';
 import { useSimulation } from '@/hooks/useSimulation';
+import { legacyPathOpensPlay } from '@/lib/playSteps';
 import type { SimulationContext } from '@/lib/simMachine';
 import {
-  getCurrentProgressRouteFromSnapshot,
   isAllowedProgressRoute,
   isGuardedSimulatorRoute,
   resolveResumeRoute,
-  type SimulatorProgressRoute,
 } from '@/lib/simulationProgress';
 import { cn } from '@/lib/utils';
 
@@ -83,14 +80,16 @@ export function CrmShell({ children }: { children: ReactNode }) {
     () => resolveResumeRoute({ context, snapshot: savedSnapshot, isReady, pathname }),
     [context, isReady, pathname, savedSnapshot],
   );
-  const quarterItem = useMemo(() => quarterNavItemForRoute(progressRoute), [progressRoute]);
   const mobileModeItem = useMemo(() => mobileModeItemForPath(pathname), [pathname]);
-  const lockedQuarterRoutes = useMemo(() => getLockedQuarterRoutes(progressRoute), [progressRoute]);
 
   const primaryItem = useMemo(() => primaryNavItemForPath(pathname), [pathname]);
 
   useEffect(() => {
     if (pathname?.startsWith('/sim/play')) return;
+    if (pathname && legacyPathOpensPlay(pathname)) {
+      router.replace('/sim/play');
+      return;
+    }
     if (!isReady) return;
     if (!pathname) return;
     if (!isGuardedSimulatorRoute(pathname)) return;
@@ -186,12 +185,10 @@ export function CrmShell({ children }: { children: ReactNode }) {
           <nav className={cn('py-4', sidebarCollapsed ? 'px-2' : 'px-3')}>
             <SidebarGroup
               label="CMO Simulator"
-              items={[{ label: 'Setup', href: '/sim/setup', icon: Wrench }, ...CORE_NAV_ITEMS, ...QUARTER_NAV_ITEMS]}
+              items={withoutRunDestinationLinks([{ label: 'Setup', href: '/sim/setup', icon: Wrench }, ...CORE_NAV_ITEMS])}
               pathname={pathname}
-              lockedHrefs={lockedQuarterRoutes}
               collapsed={sidebarCollapsed}
             />
-            <SidebarGroup label="CRM Views" items={CRM_NAV_ITEMS} pathname={pathname} className="mt-5" collapsed={sidebarCollapsed} />
           </nav>
 
           <div className="mt-auto px-4 pb-5">
@@ -346,9 +343,7 @@ export function CrmShell({ children }: { children: ReactNode }) {
       >
         <div className="mx-auto flex max-w-md items-center justify-between rounded-[28px] border border-white/80 bg-white/88 px-3 py-2 shadow-[0_20px_45px_rgba(15,23,42,0.14)] backdrop-blur-xl">
           <MobileNavLink item={MOBILE_MODE_NAV_ITEMS[0]} pathname={pathname} activeOverride={mobileModeItem.label === 'Play'} />
-          <MobileNavLink item={MOBILE_MODE_NAV_ITEMS[1]} pathname={pathname} activeOverride={mobileModeItem.label === 'Review'} />
           <MobileNavLink item={MOBILE_MODE_NAV_ITEMS[2]} pathname={pathname} activeOverride={mobileModeItem.label === 'History'} />
-          <MobileNavLink item={quarterItem} pathname={pathname} />
           <button
             type="button"
             className="flex min-w-[68px] flex-col items-center gap-1 rounded-2xl px-2 py-1.5 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
@@ -402,10 +397,8 @@ export function CrmShell({ children }: { children: ReactNode }) {
                 </button>
               </div>
             </section>
-            <NavSheetSection title="Modes" items={MOBILE_MODE_NAV_ITEMS} pathname={pathname} targetHref={mobileModeItem.href} />
-            <NavSheetSection title="Core" items={[{ label: 'Setup', href: '/sim/setup', icon: Wrench }, ...CORE_NAV_ITEMS]} pathname={pathname} targetHref={primaryItem.href} />
-            <NavSheetSection title="Quarter Views" items={QUARTER_NAV_ITEMS} pathname={pathname} targetHref={quarterItem.href} lockedHrefs={lockedQuarterRoutes} />
-            <NavSheetSection title="CRM Views" items={CRM_NAV_ITEMS} pathname={pathname} targetHref={primaryItem.href} />
+            <NavSheetSection title="Modes" items={withoutRunDestinationLinks(MOBILE_MODE_NAV_ITEMS)} pathname={pathname} targetHref={mobileModeItem.href} />
+            <NavSheetSection title="Core" items={withoutRunDestinationLinks([{ label: 'Setup', href: '/sim/setup', icon: Wrench }, ...CORE_NAV_ITEMS])} pathname={pathname} targetHref={primaryItem.href} />
           </div>
         </MobileSheetContent>
       </MobileSheet>
@@ -548,22 +541,10 @@ function NavSheetSection({
   );
 }
 
-function quarterNavItemForRoute(route: SimulatorProgressRoute): NavItem {
-  if (route.startsWith('/sim/q1')) return { label: 'Q1', href: '/sim/q1', icon: QUARTER_NAV_ITEMS[0].icon };
-  if (route.startsWith('/sim/q2')) return { label: 'Q2', href: '/sim/q2', icon: QUARTER_NAV_ITEMS[1].icon };
-  if (route.startsWith('/sim/q3')) return { label: 'Q3', href: '/sim/q3', icon: QUARTER_NAV_ITEMS[2].icon };
-  if (route.startsWith('/sim/q4')) return { label: 'Q4', href: '/sim/q4', icon: QUARTER_NAV_ITEMS[3].icon };
-  return { label: 'Quarter', href: route, icon: Sparkles };
-}
+const RUN_DESTINATION_PREFIXES = ['/sim/q1', '/sim/q2', '/sim/q3', '/sim/q4', '/sim/campaigns', '/sim/pipeline', '/sim/analytics'];
 
-function getLockedQuarterRoutes(route: SimulatorProgressRoute) {
-  const locked = new Set<string>();
-  const order: SimulatorProgressRoute[] = ['/sim/q1', '/sim/q2', '/sim/q3', '/sim/q4'];
-  const activeIndex = order.indexOf(route);
-  if (activeIndex <= 0) return locked;
-
-  order.slice(0, activeIndex).forEach((href) => locked.add(href));
-  return locked;
+function withoutRunDestinationLinks(items: NavItem[]) {
+  return items.filter((item) => !RUN_DESTINATION_PREFIXES.some((prefix) => item.href === prefix || item.href.startsWith(`${prefix}/`)));
 }
 
 function AccountSheetLink({

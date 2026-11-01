@@ -1,7 +1,12 @@
 "use client";
 
-import { StrategyStep } from "./StrategyStep";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function StrategyPage() {
-  return <StrategyStep />;
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/sim/play");
+  }, [router]);
+  return null;
 }
