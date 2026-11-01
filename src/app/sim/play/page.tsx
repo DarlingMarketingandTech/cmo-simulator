@@ -170,6 +170,9 @@ export default function PlayPage() {
   };
 
   const onStartNew = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("cmo-sim-state-v2");
+    }
     setShowDebrief(false);
     restartSimulation();
   };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
@@ -295,27 +295,63 @@ function playStepForSavedPhase(phase: ReturnType<typeof savedMachinePhase>): Pla
   }
 }
 
+const EMPTY_SETUP_DATA: SetupData = {
+  scenarioId: null,
+  companyName: '',
+  logoStyle: 'monogram',
+  budgetAllocation: {
+    brandAwareness: 33,
+    leadGeneration: 34,
+    conversionOptimization: 33,
+  },
+};
+
+function isCompanyLogoStyle(value: unknown): value is CompanyLogoStyle {
+  return value === 'orb' || value === 'badge' || value === 'monogram';
+}
+
+function setupDataFromContext(context: SimulationContext): SetupData {
+  const allocation = context.strategy.budgetAllocation;
+  return {
+    scenarioId: context.scenarioId ?? null,
+    companyName: context.strategy.companyName ?? '',
+    logoStyle: isCompanyLogoStyle(context.strategy.logoStyle) ? context.strategy.logoStyle : EMPTY_SETUP_DATA.logoStyle,
+    budgetAllocation: {
+      brandAwareness: typeof allocation?.brandAwareness === 'number' ? allocation.brandAwareness : EMPTY_SETUP_DATA.budgetAllocation.brandAwareness,
+      leadGeneration: typeof allocation?.leadGeneration === 'number' ? allocation.leadGeneration : EMPTY_SETUP_DATA.budgetAllocation.leadGeneration,
+      conversionOptimization: typeof allocation?.conversionOptimization === 'number' ? allocation.conversionOptimization : EMPTY_SETUP_DATA.budgetAllocation.conversionOptimization,
+    },
+  };
+}
+
+function contextHasStoredSetup(context: SimulationContext) {
+  const scenario = SIMULATION_SCENARIOS.find((entry) => entry.id === context.scenarioId);
+  const allocation = context.strategy.budgetAllocation;
+  const hasBudget = Boolean(
+    allocation && Object.values(allocation).some((value) => typeof value === 'number' && value > 0),
+  );
+  return Boolean(
+    scenario
+    && context.strategy.companyName?.trim()
+    && isCompanyLogoStyle(context.strategy.logoStyle)
+    && hasBudget,
+  );
+}
+
 export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {}) {
   const router = useRouter();
   const { user } = useAuth();
   const { context, isReady, send } = useSimulation();
-  const [step, setStep] = useState(1);
+  const storedSetup = stayOnPlay && contextHasStoredSetup(context) ? setupDataFromContext(context) : null;
+  const didRestoreSetup = useRef(storedSetup !== null);
+  const [step, setStep] = useState(storedSetup ? 4 : 1);
   const [guideOpen, setGuideOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [profileExpanded, setProfileExpanded] = useState(false);
   const [showAdvancedScenario, setShowAdvancedScenario] = useState(false);
   const [showAdvancedIdentity, setShowAdvancedIdentity] = useState(false);
   const [showAdvancedBudget, setShowAdvancedBudget] = useState(false);
-  const [data, setData] = useState<SetupData>({
-    scenarioId: null,
-    companyName: '',
-    logoStyle: 'monogram',
-    budgetAllocation: {
-      brandAwareness: 33,
-      leadGeneration: 34,
-      conversionOptimization: 33,
-    },
-  });
+  const [data, setData] = useState<SetupData>(storedSetup ?? EMPTY_SETUP_DATA);
   const [profileDraft, setProfileDraft] = useState<UserProfileFormState>(() => createDefaultUserProfileFormState());
   const [profileLoadState, setProfileLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
@@ -343,6 +379,18 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
       setData((current) => ({ ...current, companyName: current.companyName || data.companyName }));
     }
   }, [context.strategy.companyName, data.companyName, isReady]);
+
+  useEffect(() => {
+    if (!stayOnPlay || !isReady || didRestoreSetup.current) return;
+    if (!contextHasStoredSetup(context)) return;
+    if (data.scenarioId || data.companyName.trim()) {
+      didRestoreSetup.current = true;
+      return;
+    }
+    didRestoreSetup.current = true;
+    setData(setupDataFromContext(context));
+    setStep(4);
+  }, [context, data.companyName, data.scenarioId, isReady, stayOnPlay]);
 
   useEffect(() => {
     trackMilestone('setup_step_view', step, { step });
@@ -436,7 +484,6 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
         ...(context.simulationId ? { simulationId: context.simulationId } : { simulationId: crypto.randomUUID() }),
         startedAt: context.startedAt ?? new Date(),
         scenarioId: scenario.id,
-        playStep: 'setup',
         strategy: {
           companyName,
           guidedDemo: context.strategy.guidedDemo ?? false,
@@ -564,6 +611,7 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
   };
 
   const saveAndContinue = async () => {
+    if (stayOnPlay) return;
     try {
       const scenario = SIMULATION_SCENARIOS.find((entry) => entry.id === data.scenarioId);
       if (!scenario) throw new Error('Scenario missing');
@@ -1440,23 +1488,25 @@ export function SetupStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = {})
                 ? 'Budget allocation must equal 100% before you continue.'
                 : 'Complete the current step to continue.'}
           </div>
-          <Button
-            onClick={handleNext}
-            disabled={!canProceed()}
-            className="h-12 rounded-xl bg-slate-950 px-6 text-sm font-semibold text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400"
-          >
-            {step === totalSteps ? (
-              <span className="flex items-center gap-2">
-                Commence Strategy Session
-                <Rocket className="h-4 w-4" />
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                Save answer and continue
-                <ArrowRight className="h-4 w-4" />
-              </span>
-            )}
-          </Button>
+          {stayOnPlay && step === totalSteps ? null : (
+            <Button
+              onClick={handleNext}
+              disabled={!canProceed()}
+              className="h-12 rounded-xl bg-slate-950 px-6 text-sm font-semibold text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              {step === totalSteps ? (
+                <span className="flex items-center gap-2">
+                  Commence Strategy Session
+                  <Rocket className="h-4 w-4" />
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  Save answer and continue
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 

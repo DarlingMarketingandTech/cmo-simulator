@@ -457,6 +457,7 @@ export function StrategyStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = 
 
         {/* Action Button */}
         <div className="flex flex-col items-center gap-4 pt-10">
+          {stayOnPlay ? null : (
           <Button
             size="lg"
             onClick={handleComplete}
@@ -471,6 +472,7 @@ export function StrategyStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = 
             Launch Q1 Operations
             <ArrowRight className="ml-3 h-6 w-6" />
           </Button>
+          )}
           
           {!canComplete && (
             <motion.p 
@@ -503,7 +505,7 @@ export function StrategyStep({ stayOnPlay = false }: { stayOnPlay?: boolean } = 
               >
                 Continue
               </Button>
-            ) : (
+            ) : stayOnPlay ? null : (
               <Button type="button" className="flex-1 bg-slate-900 text-white hover:bg-slate-800" disabled={!canComplete} onClick={handleComplete}>
                 Launch Q1
               </Button>

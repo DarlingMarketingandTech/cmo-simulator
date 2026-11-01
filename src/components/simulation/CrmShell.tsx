@@ -90,6 +90,7 @@ export function CrmShell({ children }: { children: ReactNode }) {
   const primaryItem = useMemo(() => primaryNavItemForPath(pathname), [pathname]);
 
   useEffect(() => {
+    if (pathname?.startsWith('/sim/play')) return;
     if (!isReady) return;
     if (!pathname) return;
     if (!isGuardedSimulatorRoute(pathname)) return;
