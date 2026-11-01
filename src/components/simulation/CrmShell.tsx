@@ -11,10 +11,8 @@ import { MobileInstallPrompt } from '@/components/simulation/MobileInstallPrompt
 import { SaveSyncStatus } from '@/components/simulation/SaveSyncStatus';
 import {
   CORE_NAV_ITEMS,
-  CRM_NAV_ITEMS,
   MOBILE_ACCOUNT_NAV_ITEM,
   MOBILE_MODE_NAV_ITEMS,
-  QUARTER_NAV_ITEMS,
   activeHref,
   mobileModeItemForPath,
   primaryNavItemForPath,
@@ -30,15 +28,12 @@ import {
   MobileSheetTitle,
 } from '@/components/ui/mobile-sheet';
 import { useSimulation } from '@/hooks/useSimulation';
+import { legacyPathOpensPlay } from '@/lib/playSteps';
 import type { SimulationContext } from '@/lib/simMachine';
 import {
-  getCurrentProgressRouteFromSnapshot,
   isAllowedProgressRoute,
-  isEmptySimulationContext,
   isGuardedSimulatorRoute,
-  resolveProgressRoute,
-  ROUTE_PRIORITY,
-  type SimulatorProgressRoute,
+  resolveResumeRoute,
 } from '@/lib/simulationProgress';
 import { cn } from '@/lib/utils';
 
@@ -62,52 +57,44 @@ export function CrmShell({ children }: { children: ReactNode }) {
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
   const [accountOpen, setAccountOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState<Partial<SimulationContext> | null>(null);
 
-  const companyNameRaw = context.strategy.companyName?.trim() ?? '';
+  const companyNameRaw = hasMounted ? (context.strategy.companyName?.trim() ?? '') : '';
   const companyName = companyNameRaw || 'Name your company in Setup';
-  const industry = context.strategy.industry || 'saas';
-  const logoStyle = context.strategy.logoStyle || 'orb';
-  const runStatus = context.finalResults ? 'Completed' : 'In progress';
+  const industry = hasMounted ? (context.strategy.industry || 'saas') : 'saas';
+  const logoStyle = hasMounted ? (context.strategy.logoStyle || 'orb') : 'orb';
+  const runStatus = hasMounted && context.finalResults ? 'Completed' : 'In progress';
   const userLabel = user?.email ?? 'Signed in user';
   const roleLabel = user?.role ?? 'user';
-  const savedSnapshot = useMemo(() => {
-    if (typeof window === 'undefined') return null;
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem('cmo-sim-state-v2');
-      if (!raw) return null;
-      return JSON.parse(raw) as Partial<SimulationContext>;
+      setSavedSnapshot(raw ? JSON.parse(raw) as Partial<SimulationContext> : null);
     } catch {
-      return null;
+      setSavedSnapshot(null);
     }
-  }, [pathname]);
+  }, [pathname, context]);
 
-  const progressRoute = useMemo(() => {
-    const snapshotRoute = getCurrentProgressRouteFromSnapshot(savedSnapshot);
-    if (pathname.startsWith('/sim/setup')) {
-      return '/sim/setup';
-    }
-    if (!isReady) {
-      return snapshotRoute;
-    }
-
-    const currentRoute = resolveProgressRoute(context);
-    if (isEmptySimulationContext(context) && snapshotRoute && ROUTE_PRIORITY[snapshotRoute] > ROUTE_PRIORITY['/sim/setup']) {
-      return snapshotRoute;
-    }
-
-    if (!isEmptySimulationContext(context) && currentRoute === '/sim/setup' && snapshotRoute && ROUTE_PRIORITY[snapshotRoute] > ROUTE_PRIORITY['/sim/setup']) {
-      return snapshotRoute;
-    }
-
-    return currentRoute;
-  }, [context, isReady, pathname, savedSnapshot]);
-  const quarterItem = useMemo(() => quarterNavItemForRoute(progressRoute), [progressRoute]);
+  const progressRoute = useMemo(
+    () => resolveResumeRoute({ context, snapshot: savedSnapshot, isReady, pathname }),
+    [context, isReady, pathname, savedSnapshot],
+  );
   const mobileModeItem = useMemo(() => mobileModeItemForPath(pathname), [pathname]);
-  const lockedQuarterRoutes = useMemo(() => getLockedQuarterRoutes(progressRoute), [progressRoute]);
 
   const primaryItem = useMemo(() => primaryNavItemForPath(pathname), [pathname]);
 
   useEffect(() => {
+    if (pathname?.startsWith('/sim/play')) return;
+    if (pathname && legacyPathOpensPlay(pathname)) {
+      router.replace('/sim/play');
+      return;
+    }
     if (!isReady) return;
     if (!pathname) return;
     if (!isGuardedSimulatorRoute(pathname)) return;
@@ -177,6 +164,10 @@ export function CrmShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  if (pathname === "/sim" || pathname?.startsWith("/sim/play")) {
+    return children;
+  }
+
   return (
     <div className="mobile-app-shell min-h-screen bg-[linear-gradient(180deg,#f7f9fc_0%,#eef3f8_34%,#f6f8fb_100%)] text-slate-950">
       <div className="mx-auto flex min-h-screen w-full max-w-[1480px] gap-0">
@@ -199,12 +190,10 @@ export function CrmShell({ children }: { children: ReactNode }) {
           <nav className={cn('py-4', sidebarCollapsed ? 'px-2' : 'px-3')}>
             <SidebarGroup
               label="CMO Simulator"
-              items={[{ label: 'Setup', href: '/sim/setup', icon: Wrench }, ...CORE_NAV_ITEMS, ...QUARTER_NAV_ITEMS]}
+              items={withoutRunDestinationLinks([{ label: 'Setup', href: '/sim/setup', icon: Wrench }, ...CORE_NAV_ITEMS])}
               pathname={pathname}
-              lockedHrefs={lockedQuarterRoutes}
               collapsed={sidebarCollapsed}
             />
-            <SidebarGroup label="CRM Views" items={CRM_NAV_ITEMS} pathname={pathname} className="mt-5" collapsed={sidebarCollapsed} />
           </nav>
 
           <div className="mt-auto px-4 pb-5">
@@ -220,8 +209,8 @@ export function CrmShell({ children }: { children: ReactNode }) {
                   </span>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <SidebarMetric label="Revenue" value={formatCurrency(context.kpis.revenue)} />
-                  <SidebarMetric label="Market" value={formatPercent(context.kpis.marketShare)} />
+                  <SidebarMetric label="Revenue" value={hasMounted ? formatCurrency(context.kpis.revenue) : '$0'} />
+                  <SidebarMetric label="Market" value={hasMounted ? formatPercent(context.kpis.marketShare) : '0%'} />
                 </div>
                 <p className="mt-3 text-[11px] leading-5 text-slate-500">
                   The workspace keeps score while each quarter adds another decision layer.
@@ -258,11 +247,11 @@ export function CrmShell({ children }: { children: ReactNode }) {
               <div className="hidden items-center gap-2 md:flex">
                 <SaveSyncStatus />
                 <Link
-                  href="/sim/setup"
+                  href="/sim/play"
                   className="ml-2 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
                 >
                   <Wrench className="h-4 w-4 text-slate-500" />
-                  Workspace
+                  Continue
                 </Link>
                 <details className="relative">
                   <summary className="list-none cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
@@ -338,10 +327,10 @@ export function CrmShell({ children }: { children: ReactNode }) {
                   {runStatus} operating year
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <CompactMetric label="Revenue" value={formatCurrency(context.kpis.revenue)} />
-                  <CompactMetric label="Profit" value={formatCurrency(context.kpis.profit)} />
-                  <CompactMetric label="Market" value={formatPercent(context.kpis.marketShare)} />
-                  <CompactMetric label="Brand" value={formatPercent(context.kpis.brandAwareness)} />
+                  <CompactMetric label="Revenue" value={hasMounted ? formatCurrency(context.kpis.revenue) : '$0'} />
+                  <CompactMetric label="Profit" value={hasMounted ? formatCurrency(context.kpis.profit) : '$0'} />
+                  <CompactMetric label="Market" value={hasMounted ? formatPercent(context.kpis.marketShare) : '0%'} />
+                  <CompactMetric label="Brand" value={hasMounted ? formatPercent(context.kpis.brandAwareness) : '0%'} />
                 </div>
               </div>
             </div>
@@ -359,9 +348,7 @@ export function CrmShell({ children }: { children: ReactNode }) {
       >
         <div className="mx-auto flex max-w-md items-center justify-between rounded-[28px] border border-white/80 bg-white/88 px-3 py-2 shadow-[0_20px_45px_rgba(15,23,42,0.14)] backdrop-blur-xl">
           <MobileNavLink item={MOBILE_MODE_NAV_ITEMS[0]} pathname={pathname} activeOverride={mobileModeItem.label === 'Play'} />
-          <MobileNavLink item={MOBILE_MODE_NAV_ITEMS[1]} pathname={pathname} activeOverride={mobileModeItem.label === 'Review'} />
           <MobileNavLink item={MOBILE_MODE_NAV_ITEMS[2]} pathname={pathname} activeOverride={mobileModeItem.label === 'History'} />
-          <MobileNavLink item={quarterItem} pathname={pathname} />
           <button
             type="button"
             className="flex min-w-[68px] flex-col items-center gap-1 rounded-2xl px-2 py-1.5 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
@@ -415,10 +402,8 @@ export function CrmShell({ children }: { children: ReactNode }) {
                 </button>
               </div>
             </section>
-            <NavSheetSection title="Modes" items={MOBILE_MODE_NAV_ITEMS} pathname={pathname} targetHref={mobileModeItem.href} />
-            <NavSheetSection title="Core" items={[{ label: 'Setup', href: '/sim/setup', icon: Wrench }, ...CORE_NAV_ITEMS]} pathname={pathname} targetHref={primaryItem.href} />
-            <NavSheetSection title="Quarter Views" items={QUARTER_NAV_ITEMS} pathname={pathname} targetHref={quarterItem.href} lockedHrefs={lockedQuarterRoutes} />
-            <NavSheetSection title="CRM Views" items={CRM_NAV_ITEMS} pathname={pathname} targetHref={primaryItem.href} />
+            <NavSheetSection title="Modes" items={withoutRunDestinationLinks(MOBILE_MODE_NAV_ITEMS)} pathname={pathname} targetHref={mobileModeItem.href} />
+            <NavSheetSection title="Core" items={withoutRunDestinationLinks([{ label: 'Setup', href: '/sim/setup', icon: Wrench }, ...CORE_NAV_ITEMS])} pathname={pathname} targetHref={primaryItem.href} />
           </div>
         </MobileSheetContent>
       </MobileSheet>
@@ -561,22 +546,21 @@ function NavSheetSection({
   );
 }
 
-function quarterNavItemForRoute(route: SimulatorProgressRoute): NavItem {
-  if (route.startsWith('/sim/q1')) return { label: 'Q1', href: '/sim/q1', icon: QUARTER_NAV_ITEMS[0].icon };
-  if (route.startsWith('/sim/q2')) return { label: 'Q2', href: '/sim/q2', icon: QUARTER_NAV_ITEMS[1].icon };
-  if (route.startsWith('/sim/q3')) return { label: 'Q3', href: '/sim/q3', icon: QUARTER_NAV_ITEMS[2].icon };
-  if (route.startsWith('/sim/q4')) return { label: 'Q4', href: '/sim/q4', icon: QUARTER_NAV_ITEMS[3].icon };
-  return { label: 'Quarter', href: route, icon: Sparkles };
-}
+const RUN_DESTINATION_PREFIXES = [
+  '/sim/setup',
+  '/sim/strategy',
+  '/sim/debrief',
+  '/sim/q1',
+  '/sim/q2',
+  '/sim/q3',
+  '/sim/q4',
+  '/sim/campaigns',
+  '/sim/pipeline',
+  '/sim/analytics',
+];
 
-function getLockedQuarterRoutes(route: SimulatorProgressRoute) {
-  const locked = new Set<string>();
-  const order: SimulatorProgressRoute[] = ['/sim/q1', '/sim/q2', '/sim/q3', '/sim/q4'];
-  const activeIndex = order.indexOf(route);
-  if (activeIndex <= 0) return locked;
-
-  order.slice(0, activeIndex).forEach((href) => locked.add(href));
-  return locked;
+function withoutRunDestinationLinks(items: NavItem[]) {
+  return items.filter((item) => !RUN_DESTINATION_PREFIXES.some((prefix) => item.href === prefix || item.href.startsWith(`${prefix}/`)));
 }
 
 function AccountSheetLink({

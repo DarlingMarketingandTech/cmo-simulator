@@ -4,7 +4,7 @@ This document describes **how outcomes are computed in the repository today**: c
 
 **Scope:** Runtime behavior in `src/engine`, `src/lib/simMachine.ts`, `src/lib/marketConditions.ts`, `src/lib/simulationForecast.ts`, and related modules. Aspirational mechanics described in [`docs/design/SIMULATION_DESIGN_SPEC.md`](design/SIMULATION_DESIGN_SPEC.md) are noted where they diverge from code.
 
-**Maintenance:** When you change formulas or constants, update this file and reference the source files listed in each section.
+**Maintenance:** When you change formulas or constants, update this file and reference the source files listed in each section. The ordered edit map for a new variable is in [`PROGRESS_AND_ROADMAP.md`](./PROGRESS_AND_ROADMAP.md). Do not widen the locked 65–67 baseline score band until that roadmap's calculation phase.
 
 ---
 

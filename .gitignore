@@ -62,3 +62,12 @@ Thumbs.db
 .playwright-mcp/
 figma-*.png
 rhombus-*.png
+
+# Local typecheck, lint, and agent scratch. Not part of the app.
+.superpowers/
+tsc-output.txt
+typecheck_output.txt
+typecheck_report.txt
+type_errors.log
+knip_report.txt
+deep-research-report*.md

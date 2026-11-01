@@ -1,11 +1,12 @@
-import { QuarterDebriefClient } from './QuarterDebriefClient';
+"use client";
 
-export default async function QuarterDebriefPage({
-  params,
-}: {
-  params: Promise<{ quarter: string }>;
-}) {
-  const { quarter } = await params;
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-  return <QuarterDebriefClient quarterSlug={quarter} />;
+export default function QuarterDebriefPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/sim/play");
+  }, [router]);
+  return null;
 }

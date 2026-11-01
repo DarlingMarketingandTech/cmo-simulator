@@ -2,6 +2,8 @@
 
 This document describes **what learners actually do** in each stage of the product, **which routes and controls map to those stages**, and **what each phase is trying to teach**. It complements the numeric engine reference in [`SIMULATION_ENGINE_REFERENCE.md`](./SIMULATION_ENGINE_REFERENCE.md).
 
+**Current path (2026-11-01):** the player does not pick those routes from a sidebar. Home is `/sim`. The run is one screen, `/sim/play`, stepped by `playStep`. Old `/sim/setup`, `/sim/strategy`, `/sim/q1`–`q4`, `/sim/debrief`, `/sim/campaigns`, `/sim/pipeline`, and `/sim/analytics` addresses redirect to `/sim/play`. The table below is the machine-phase map those redirects still sit on. Progress and the next build phases are in [`PROGRESS_AND_ROADMAP.md`](./PROGRESS_AND_ROADMAP.md).
+
 ---
 
 ## 1. How navigation ties to simulation state

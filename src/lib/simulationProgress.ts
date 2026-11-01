@@ -114,6 +114,53 @@ export function isGuardedSimulatorRoute(pathname: string) {
   );
 }
 
+export type SimulationMachinePhase =
+  | 'idle'
+  | 'strategySession'
+  | 'Q1'
+  | 'Q2'
+  | 'Q3'
+  | 'Q4'
+  | 'debrief';
+
+export function machinePhaseForRoute(route: SimulatorProgressRoute): SimulationMachinePhase {
+  switch (route) {
+    case '/sim/strategy':
+      return 'strategySession';
+    case '/sim/q1':
+      return 'Q1';
+    case '/sim/q2':
+      return 'Q2';
+    case '/sim/q3':
+      return 'Q3';
+    case '/sim/q4':
+      return 'Q4';
+    case '/sim/debrief':
+      return 'debrief';
+    default:
+      return 'idle';
+  }
+}
+
+export function resolveResumeRoute(input: {
+  context: SimulationContext;
+  snapshot: Partial<SimulationContext> | null | undefined;
+  isReady: boolean;
+  pathname?: string;
+}): SimulatorProgressRoute {
+  const snapshotRoute = getCurrentProgressRouteFromSnapshot(input.snapshot);
+  if (input.pathname?.startsWith('/sim/setup')) return '/sim/setup';
+  if (!input.isReady) return snapshotRoute;
+
+  const currentRoute = resolveProgressRoute(input.context);
+  const snapshotIsAhead = ROUTE_PRIORITY[snapshotRoute] > ROUTE_PRIORITY['/sim/setup'];
+  if (isEmptySimulationContext(input.context) && snapshotIsAhead) return snapshotRoute;
+  if (!isEmptySimulationContext(input.context) && currentRoute === '/sim/setup' && snapshotIsAhead) {
+    return snapshotRoute;
+  }
+  return currentRoute;
+}
+
 export function isAllowedProgressRoute(pathname: string, route: SimulatorProgressRoute) {
   if (route === '/sim/setup') return pathname.startsWith('/sim/setup');
   if (route === '/sim/strategy') return pathname.startsWith('/sim/strategy');
