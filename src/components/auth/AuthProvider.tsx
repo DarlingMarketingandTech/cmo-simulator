@@ -50,9 +50,13 @@ export function AuthProvider({
 
   useEffect(() => {
     const supabase = createClient();
+    if (!supabase?.auth?.onAuthStateChange) {
+      return;
+    }
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event: string, session: { user?: User | null } | null) => {
       setUser(toAuthUser(session?.user ?? null));
     });
 

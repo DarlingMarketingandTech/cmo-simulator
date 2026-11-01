@@ -30,10 +30,14 @@ import {
   MobileSheetTitle,
 } from '@/components/ui/mobile-sheet';
 import { useSimulation } from '@/hooks/useSimulation';
+import type { SimulationContext } from '@/lib/simMachine';
 import {
+  getCurrentProgressRouteFromSnapshot,
   isAllowedProgressRoute,
+  isEmptySimulationContext,
   isGuardedSimulatorRoute,
   resolveProgressRoute,
+  ROUTE_PRIORITY,
   type SimulatorProgressRoute,
 } from '@/lib/simulationProgress';
 import { cn } from '@/lib/utils';
@@ -66,7 +70,37 @@ export function CrmShell({ children }: { children: ReactNode }) {
   const runStatus = context.finalResults ? 'Completed' : 'In progress';
   const userLabel = user?.email ?? 'Signed in user';
   const roleLabel = user?.role ?? 'user';
-  const progressRoute = useMemo(() => resolveProgressRoute(context), [context]);
+  const savedSnapshot = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = window.localStorage.getItem('cmo-sim-state-v2');
+      if (!raw) return null;
+      return JSON.parse(raw) as Partial<SimulationContext>;
+    } catch {
+      return null;
+    }
+  }, [pathname]);
+
+  const progressRoute = useMemo(() => {
+    const snapshotRoute = getCurrentProgressRouteFromSnapshot(savedSnapshot);
+    if (pathname.startsWith('/sim/setup')) {
+      return '/sim/setup';
+    }
+    if (!isReady) {
+      return snapshotRoute;
+    }
+
+    const currentRoute = resolveProgressRoute(context);
+    if (isEmptySimulationContext(context) && snapshotRoute && ROUTE_PRIORITY[snapshotRoute] > ROUTE_PRIORITY['/sim/setup']) {
+      return snapshotRoute;
+    }
+
+    if (!isEmptySimulationContext(context) && currentRoute === '/sim/setup' && snapshotRoute && ROUTE_PRIORITY[snapshotRoute] > ROUTE_PRIORITY['/sim/setup']) {
+      return snapshotRoute;
+    }
+
+    return currentRoute;
+  }, [context, isReady, pathname, savedSnapshot]);
   const quarterItem = useMemo(() => quarterNavItemForRoute(progressRoute), [progressRoute]);
   const mobileModeItem = useMemo(() => mobileModeItemForPath(pathname), [pathname]);
   const lockedQuarterRoutes = useMemo(() => getLockedQuarterRoutes(progressRoute), [progressRoute]);

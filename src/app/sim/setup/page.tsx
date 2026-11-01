@@ -27,6 +27,7 @@ import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { LogoGenerator, type CompanyLogoStyle } from '@/components/LogoGenerator';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePageTracking, useSimulationTracking } from '@/hooks/useAnalytics';
+import { useSimulation } from '@/hooks/useSimulation';
 import { logger } from '@/lib/logger';
 import { createInitialSimulationContext, type HydrationPatch, type SimulationContext } from '@/lib/simMachine';
 import { saveSimulationSnapshot } from '@/lib/saveSimulationSnapshot';
@@ -263,6 +264,7 @@ function formatBudget(value: number) {
 export default function SetupPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { context, isReady, send } = useSimulation();
   const [step, setStep] = useState(1);
   const [guideOpen, setGuideOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -300,6 +302,13 @@ export default function SetupPage() {
   const selectedScenario = SIMULATION_SCENARIOS.find((scenario) => scenario.id === data.scenarioId);
   const SelectedScenarioIcon = selectedScenario ? SCENARIO_CARD_ICONS[selectedScenario.iconKey] : undefined;
   const stepMeta = STEP_META[step - 1];
+
+  useEffect(() => {
+    if (!isReady) return;
+    if (!context.strategy.companyName && data.companyName.trim()) {
+      setData((current) => ({ ...current, companyName: current.companyName || data.companyName }));
+    }
+  }, [context.strategy.companyName, data.companyName, isReady]);
 
   useEffect(() => {
     trackMilestone('setup_step_view', step, { step });
@@ -365,6 +374,35 @@ export default function SetupPage() {
       setShowAdvancedIdentity(true);
     }
   }, [data.companyName, showAdvancedIdentity, step]);
+
+  const navigateAfterHydration = (nextPath: string, preferredSnapshot?: Partial<SimulationContext>) => {
+    if (typeof window === 'undefined') {
+      router.push(nextPath);
+      return;
+    }
+
+    const safePath = nextPath || '/sim/setup';
+    const persistSnapshot = (snapshot: Partial<SimulationContext>) => {
+      try {
+        window.localStorage.setItem('cmo-sim-state-v2', JSON.stringify(snapshot));
+      } catch (error) {
+        logger.warn('Failed to persist hydrated snapshot before navigation', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    };
+
+    const snapshot = preferredSnapshot
+      ?? context
+      ?? createInitialSimulationContext();
+    persistSnapshot(snapshot);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        router.push(safePath);
+      });
+    });
+  };
 
   const handleNext = () => {
     if (step < totalSteps) {
@@ -497,13 +535,26 @@ export default function SetupPage() {
         setProfileMessage('Continuing as guest. Profile memory will sync after you sign in.');
       }
 
-      localStorage.setItem('cmo-sim-state-v2', JSON.stringify(initialState));
+      send({ type: 'HYDRATE_CONTEXT', context: initialState as HydrationPatch });
+      const persistedSetupState = {
+        ...initialState,
+        strategy: { ...initialState.strategy },
+        quarters: mergeSimulationContext(createInitialSimulationContext(), initialState as HydrationPatch).quarters,
+      };
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('cmo-sim-state-v2', JSON.stringify(persistedSetupState));
+      }
 
       try {
         await saveSimulationSnapshot(hydratedContext, 'setup', 'in_progress');
       } catch (snapshotError) {
         logger.error('Failed to persist initial simulation snapshot', snapshotError);
       }
+
+      const freshStrategyState = {
+        ...persistedSetupState,
+        strategy: { ...persistedSetupState.strategy },
+      };
 
       trackStart({
         industry: scenario.industry,
@@ -529,7 +580,7 @@ export default function SetupPage() {
         },
       });
 
-      router.push('/sim/strategy');
+      navigateAfterHydration('/sim/strategy', freshStrategyState);
     } catch (error) {
       logger.error('Error saving simulation', error);
       alert('Failed to initialize simulation. Please try again.');
@@ -570,7 +621,13 @@ export default function SetupPage() {
       guidedDemoState as HydrationPatch,
     );
 
-    localStorage.setItem('cmo-sim-state-v2', JSON.stringify(guidedDemoState));
+    send({ type: 'HYDRATE_CONTEXT', context: guidedDemoState as HydrationPatch });
+    const persistedGuidedDemoState = {
+      ...guidedDemoState,
+      strategy: { ...guidedDemoState.strategy },
+      quarters: mergeSimulationContext(createInitialSimulationContext(), guidedDemoState as HydrationPatch).quarters,
+    };
+    localStorage.setItem('cmo-sim-state-v2', JSON.stringify(persistedGuidedDemoState));
     void (async () => {
       try {
         await saveSimulationSnapshot(hydratedDemoContext, 'setup', 'in_progress');
@@ -586,13 +643,14 @@ export default function SetupPage() {
         logger.error('Failed to persist guided demo setup', error);
       }
     })();
-    router.push('/sim/strategy?demo=1');
+    navigateAfterHydration('/sim/strategy?demo=1', persistedGuidedDemoState);
   };
 
   const resumeSavedRun = () => {
     if (!savedRunContext) return;
+    send({ type: 'HYDRATE_CONTEXT', context: savedRunContext as HydrationPatch });
     localStorage.setItem('cmo-sim-state-v2', JSON.stringify(savedRunContext));
-    router.push(resolveSimulationPath(savedRunPhase));
+    navigateAfterHydration(resolveSimulationPath(savedRunPhase));
   };
 
   const canProceed = () => {

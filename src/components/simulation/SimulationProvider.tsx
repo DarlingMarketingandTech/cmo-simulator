@@ -1,10 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useMachine } from '@xstate/react';
-import { simulationMachine, SimulationEvent, HydrationPatch } from '@/lib/simMachine';
+import { simulationMachine, SimulationEvent, HydrationPatch, createInitialSimulationContext } from '@/lib/simMachine';
 import { StateFrom } from 'xstate';
 import { logger } from '@/lib/logger';
+import { mergeSimulationContext } from '@/lib/simulationHydration';
 
 type SimulationMachineState = StateFrom<typeof simulationMachine>;
 
@@ -16,32 +17,74 @@ interface SimulationContextValue {
 
 const SimulationReactContext = createContext<SimulationContextValue | null>(null);
 
+function hasMeaningfulSimulationState(context: Partial<HydrationPatch> | undefined): boolean {
+  if (!context || typeof context !== 'object') return false;
+
+  if (context.simulationId || context.scenarioId || context.startedAt) return true;
+
+  const strategy = context.strategy && typeof context.strategy === 'object' ? context.strategy as Record<string, unknown> : {};
+  if (typeof strategy.companyName === 'string' && strategy.companyName.trim().length > 0) return true;
+  if (typeof strategy.targetAudience === 'string' && strategy.targetAudience.trim().length > 0) return true;
+  if (typeof strategy.brandPositioning === 'string' && strategy.brandPositioning.trim().length > 0) return true;
+  if (Array.isArray(strategy.primaryChannels) && strategy.primaryChannels.some((channel) => typeof channel === 'string' && channel.trim().length > 0)) return true;
+  if (strategy.budgetAllocation && typeof strategy.budgetAllocation === 'object') {
+    const allocation = strategy.budgetAllocation as Record<string, unknown>;
+    if (Object.values(allocation).some((value) => typeof value === 'number' && value > 0)) return true;
+  }
+
+  const quarters = context.quarters && typeof context.quarters === 'object' ? context.quarters as Record<string, unknown> : {};
+  for (const quarter of Object.values(quarters)) {
+    if (!quarter || typeof quarter !== 'object') continue;
+    const q = quarter as Record<string, unknown>;
+    if (Array.isArray(q.tactics) && q.tactics.length > 0) return true;
+    if (typeof q.budgetSpent === 'number' && q.budgetSpent > 0) return true;
+    if (typeof q.timeSpent === 'number' && q.timeSpent > 0) return true;
+    const results = q.results && typeof q.results === 'object' ? q.results as Record<string, unknown> : {};
+    if (Object.values(results).some((value) => typeof value === 'number' && value !== 0 && value !== 10 && value !== 30 && value !== 70)) return true;
+  }
+
+  if (context.kpis && typeof context.kpis === 'object') {
+    const kpis = context.kpis as unknown as Record<string, unknown>;
+    const kpiValues = Object.values(kpis);
+    if (kpiValues.some((value) => typeof value === 'number' && value !== 0 && value !== 10 && value !== 30 && value !== 70)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function SimulationProvider({ children }: { children: React.ReactNode }) {
-  // Default to an empty patch so we never block first paint.
-  // We then *optionally* apply a saved patch after mount.
   const [hydratedContext, setHydratedContext] = useState<HydrationPatch>({});
   const [hydrationError, setHydrationError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Hydrates XState context before routing; separate from Supabase run persistence (`saveSimulationSnapshot`).
-    const saved = localStorage.getItem('cmo-sim-state-v2');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          setHydratedContext(parsed);
-          setHydrationError(null);
-        } else {
-          setHydrationError('Saved simulation state is invalid.');
-          setHydratedContext({});
-        }
-      } catch (e) {
-        logger.error("Failed to parse saved simulation state", e);
-        setHydrationError('Saved simulation state is corrupted.');
+    try {
+      const saved = typeof window !== 'undefined' ? window.localStorage.getItem('cmo-sim-state-v2') : null;
+      if (!saved) {
+        setHydratedContext({});
+        setHydrationError(null);
+        return;
+      }
+
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const normalized = {
+          ...parsed,
+          strategy: {
+            ...(parsed.strategy ?? {}),
+          },
+          quarters: parsed.quarters ?? createInitialSimulationContext().quarters,
+        };
+        setHydratedContext(normalized);
+        setHydrationError(null);
+      } else {
+        setHydrationError('Saved simulation state is invalid.');
         setHydratedContext({});
       }
-    } else {
-      // If no saved state, keep an empty patch so the machine uses its defaults.
+    } catch (e) {
+      logger.error('Failed to parse saved simulation state', e);
+      setHydrationError('Saved simulation state is corrupted.');
       setHydratedContext({});
     }
   }, []);
@@ -76,7 +119,7 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
 
 function SimulationMachineProvider({
   children,
-  hydratedContext
+  hydratedContext,
 }: {
   children: React.ReactNode;
   hydratedContext: HydrationPatch;
@@ -85,26 +128,42 @@ function SimulationMachineProvider({
   const hasAppliedHydration = useRef(false);
   const [isReady, setIsReady] = useState(Object.keys(hydratedContext).length === 0);
 
-  // Hydrate once; machine remains in idle after hydration so we must guard repeats.
   useEffect(() => {
-    if (
-      !hasAppliedHydration.current &&
-      Object.keys(hydratedContext).length > 0 &&
-      state.matches('idle')
-    ) {
+    if (!hasAppliedHydration.current) {
       hasAppliedHydration.current = true;
-      send({ type: 'HYDRATE_CONTEXT', context: hydratedContext });
+
+      if (Object.keys(hydratedContext).length > 0) {
+        send({ type: 'HYDRATE_CONTEXT', context: hydratedContext });
+      }
+
       setIsReady(true);
     }
+  }, [hydratedContext, send]);
 
-    if (!hasAppliedHydration.current && Object.keys(hydratedContext).length === 0) {
-      setIsReady(true);
-    }
-  }, [hydratedContext, send, state]);
-
-  // Automatically save state changes to localStorage
   useEffect(() => {
-    localStorage.setItem('cmo-sim-state-v2', JSON.stringify(state.context));
+    if (typeof window === 'undefined') return;
+
+    if (!hasMeaningfulSimulationState(state.context)) {
+      window.localStorage.removeItem('cmo-sim-state-v2');
+      return;
+    }
+
+    const currentPath = window.location.pathname;
+    const isSimulatorSetupPath = currentPath.startsWith('/sim/setup');
+
+    if (isSimulatorSetupPath) {
+      const baseContext = state.context;
+      const setupShape = {
+        ...baseContext,
+        strategy: {
+          ...baseContext.strategy,
+        },
+      };
+      window.localStorage.setItem('cmo-sim-state-v2', JSON.stringify(setupShape));
+      return;
+    }
+
+    window.localStorage.setItem('cmo-sim-state-v2', JSON.stringify(state.context));
   }, [state.context]);
 
   return (

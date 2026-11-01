@@ -10,11 +10,16 @@ export default async function SimulationLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
+  let user = null;
+
+  try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    user = session?.user ?? null;
+  } catch (error) {
+    // Guest-first simulator mode: continue without Supabase when env vars are missing.
+    user = null;
+  }
 
   return (
     <AuthProvider initialUser={user}>
