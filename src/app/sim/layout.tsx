@@ -1,11 +1,10 @@
 import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { SimulationProvider } from '@/components/simulation/SimulationProvider';
 import { CrmShell } from '@/components/simulation/CrmShell';
 import { createClient } from '@/lib/supabase/server';
 
-/** `/sim/*` server gate for signed-in users. Runtime ownership map: docs/SIMULATION_RUNTIME_AUTHORITY.md */
+/** Optional auth session for `/sim/*` with guest-first playthrough support. */
 export default async function SimulationLayout({
   children,
 }: {
@@ -16,10 +15,6 @@ export default async function SimulationLayout({
     data: { session },
   } = await supabase.auth.getSession();
   const user = session?.user ?? null;
-
-  if (!user) {
-    redirect('/auth/sign-in?next=/sim/setup');
-  }
 
   return (
     <AuthProvider initialUser={user}>

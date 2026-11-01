@@ -186,6 +186,12 @@ export default function SimulationsPage() {
           >
             New simulation
           </Link>
+          <Link
+            href="/sim/leaderboard"
+            className="inline-flex rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Public leaderboard
+          </Link>
           <button
             type="button"
             onClick={handleRefresh}

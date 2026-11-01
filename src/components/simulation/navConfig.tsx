@@ -12,6 +12,7 @@ import {
   Megaphone,
   PlayCircle,
   FolderOpenDot,
+  Trophy,
   SearchCheck,
   Sparkles,
   Wrench,
@@ -27,6 +28,7 @@ export type NavItem = {
 export const CORE_NAV_ITEMS: NavItem[] = [
   { label: 'Continue', href: '/sim', icon: LayoutDashboard },
   { label: 'My Simulations', href: '/sim/simulations', icon: FolderOpenDot },
+  { label: 'Leaderboard', href: '/sim/leaderboard', icon: Trophy },
   { label: 'Strategy', href: '/sim/strategy', icon: Flag },
   { label: 'Debrief', href: '/sim/debrief', icon: BarChart3 },
 ];
@@ -67,6 +69,7 @@ export const MOBILE_ACCOUNT_NAV_ITEM: NavItem = {
 export function titleForPath(pathname: string) {
   if (pathname.startsWith('/sim/setup')) return 'Setup';
   if (pathname.startsWith('/sim/simulations')) return 'My Simulations';
+  if (pathname.startsWith('/sim/leaderboard')) return 'Leaderboard';
   if (pathname.startsWith('/sim/strategy')) return 'Strategy Session';
   if (pathname.startsWith('/sim/campaigns')) return 'Campaigns';
   if (pathname.startsWith('/sim/pipeline')) return 'Pipeline';
@@ -86,6 +89,7 @@ export function activeHref(pathname: string, href: string) {
 export function primaryNavItemForPath(pathname: string): NavItem {
   if (pathname.startsWith('/sim/setup')) return { label: 'Setup', href: '/sim/setup', icon: Wrench };
   if (pathname.startsWith('/sim/simulations')) return { label: 'Runs', href: '/sim/simulations', icon: FolderOpenDot };
+  if (pathname.startsWith('/sim/leaderboard')) return { label: 'Leaderboard', href: '/sim/leaderboard', icon: Trophy };
   if (pathname.startsWith('/sim/strategy')) return { label: 'Strategy', href: '/sim/strategy', icon: Flag };
   if (pathname.startsWith('/sim/q1')) return { label: 'Q1', href: '/sim/q1', icon: Layers3 };
   if (pathname.startsWith('/sim/q2')) return { label: 'Q2', href: '/sim/q2', icon: Layers3 };
@@ -101,10 +105,15 @@ export function primaryNavItemForPath(pathname: string): NavItem {
 export function mobileModeItemForPath(pathname: string): NavItem {
   if (pathname.startsWith('/sim/simulations')) return { label: 'History', href: '/sim/simulations', icon: History };
   if (
+    pathname.startsWith('/sim/leaderboard')
+    || pathname.startsWith('/sim/debrief')
+  ) {
+    return { label: 'History', href: '/sim/simulations', icon: History };
+  }
+  if (
     pathname.startsWith('/sim/campaigns')
     || pathname.startsWith('/sim/pipeline')
     || pathname.startsWith('/sim/analytics')
-    || pathname.startsWith('/sim/debrief')
   ) {
     return { label: 'Review', href: '/sim/campaigns', icon: SearchCheck };
   }
