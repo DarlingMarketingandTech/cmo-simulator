@@ -55,6 +55,11 @@ function scale01(value: number, cap: number): number {
   return clamp(value / cap, 0, 1);
 }
 
+function normalizeRange(value: number, min: number, max: number): number {
+  if (!(max > min)) return 0;
+  return clamp((value - min) / (max - min), 0, 1);
+}
+
 /**
  * Five-dimension executive rubric (0–100 each). Inputs are simulation outputs only — no AI.
  */
@@ -84,14 +89,18 @@ export function calculateExecutiveScoreRubric(context: SimulationContext): Execu
   );
 
   const profitPerDeployed = deployed > 0 ? totalProfit / deployed : 0;
-  const ppmNorm = scale01(profitPerDeployed, 0.24) * 100;
-  const utilDistance = Math.abs(utilization - 0.78);
-  const utilNorm = clamp(100 - utilDistance * 130, 0, 100);
+  const ppmNorm = normalizeRange(profitPerDeployed, -0.5, 0.22) * 100;
+  const utilDistance = Math.abs(utilization - 0.82);
+  const utilNorm = clamp(100 - utilDistance * 85, 12, 100);
   const margins = R.map((rev, i) => (rev > 0 ? clamp(P[i] / rev, -1, 1) : 0));
   const avgMargin = margins.reduce((sum, v) => sum + v, 0) / 4;
-  const marginNorm = scale01(avgMargin, 0.16) * 100;
+  const marginNorm = normalizeRange(avgMargin, -0.3, 0.18) * 100;
+  const lossQuarterCount = P.filter((value) => value < 0).length;
+  const lossPenaltyNorm = clamp(100 - lossQuarterCount * 14, 44, 100);
 
-  const efficiency = toScore(0.46 * ppmNorm + 0.34 * utilNorm + 0.2 * marginNorm);
+  const efficiency = toScore(
+    0.36 * ppmNorm + 0.26 * utilNorm + 0.24 * marginNorm + 0.14 * lossPenaltyNorm,
+  );
 
   const alignmentNorm = computeChannelAlignmentNorm(context);
   const stratDepthNorm = computeStrategyDepthNorm(context);

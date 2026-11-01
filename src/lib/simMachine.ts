@@ -951,17 +951,33 @@ export function processQuarterAdvance(
   const totalSynergyBonus = Object.values(newEngineState.results.channelRoi).reduce((a, b) => a + b, 0) > 0 ? 1.1 : 1.0; 
   
   const marketShareEffectiveness = 1 - (currentKPIs.marketShare / 100) * 0.5;
-  const adjustedMarketShareDelta = (tacticMarketShareImpact * marketShareEffectiveness * totalSynergyBonus);
+  const marketShareHeadroom = Math.max(0.28, 1 - currentKPIs.marketShare / 100);
+  const adjustedMarketShareDelta =
+    tacticMarketShareImpact * marketShareEffectiveness * totalSynergyBonus * marketShareHeadroom;
 
-  const newMarketShare = Math.max(0, Math.min(100, currentKPIs.marketShare + adjustedMarketShareDelta + wildcardMarketShareImpact));
-  const newCustSat = Math.max(0, Math.min(100, currentKPIs.customerSatisfaction + (tacticSatisfactionImpact * 0.8) + wildcardCustomerSatisfactionImpact));
+  const satisfactionHeadroom = Math.max(0.25, 1 - currentKPIs.customerSatisfaction / 100);
+  const adjustedSatisfactionDelta = tacticSatisfactionImpact * 0.8 * satisfactionHeadroom;
+
+  const newMarketShare = Math.max(
+    0,
+    Math.min(100, currentKPIs.marketShare + adjustedMarketShareDelta + wildcardMarketShareImpact),
+  );
+  const newCustSat = Math.max(
+    0,
+    Math.min(100, currentKPIs.customerSatisfaction + adjustedSatisfactionDelta + wildcardCustomerSatisfactionImpact),
+  );
   
   // Brand awareness naturally maps to Adstock!
   // Summing the active adstock pool to boost brand awareness
   const totalAdstock = Object.values(newEngineState.adstock).reduce((a, b) => a + b, 0);
-  const matchedAdstockBonus = totalAdstock > 100000 ? 5 : 0; 
-  
-  const newBrandAwareness = Math.max(0, Math.min(100, currentKPIs.brandAwareness + (tacticAwarenessImpact * 0.8) + matchedAdstockBonus + wildcardBrandAwarenessImpact));
+  const matchedAdstockBonus = totalAdstock > 100000 ? 3 : 0;
+  const awarenessHeadroom = Math.max(0.22, 1 - currentKPIs.brandAwareness / 100);
+  const adjustedAwarenessDelta = tacticAwarenessImpact * 0.75 * awarenessHeadroom;
+
+  const newBrandAwareness = Math.max(
+    0,
+    Math.min(100, currentKPIs.brandAwareness + adjustedAwarenessDelta + matchedAdstockBonus + wildcardBrandAwarenessImpact),
+  );
 
   const newQuarterData: QuarterData = {
     ...quarter,

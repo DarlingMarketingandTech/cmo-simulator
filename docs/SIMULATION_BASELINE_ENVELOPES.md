@@ -24,15 +24,15 @@ This baseline locks deterministic outcomes for a representative four-quarter tac
 
 | Scenario | Difficulty | Revenue | Profit | Market share | Satisfaction | Awareness | Overall score | Growth | Efficiency | Coherence | Resilience | Finish |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| turnaround | beginner | 5,047,193 | -1,077,807 | 67.486 | 79.8 | 100.0 | 59 | 74 | 0 | 85 | 41 | 99 |
-| turnaround | intermediate | 5,042,729 | -1,082,271 | 67.486 | 79.8 | 100.0 | 59 | 74 | 0 | 85 | 41 | 99 |
-| turnaround | advanced | 5,037,800 | -1,087,200 | 67.486 | 79.8 | 100.0 | 59 | 74 | 0 | 85 | 41 | 99 |
-| hyper-growth | beginner | 1,848,969 | -476,031 | 58.174 | 100.0 | 100.0 | 60 | 82 | 0 | 85 | 39 | 90 |
-| hyper-growth | intermediate | 1,772,969 | -552,031 | 58.174 | 100.0 | 100.0 | 60 | 81 | 0 | 85 | 40 | 90 |
-| hyper-growth | advanced | 1,692,100 | -632,900 | 58.174 | 100.0 | 100.0 | 60 | 80 | 0 | 85 | 40 | 92 |
-| challenger | beginner | 509,020 | -865,980 | 57.458 | 100.0 | 100.0 | 58 | 76 | 0 | 85 | 40 | 86 |
-| challenger | intermediate | 483,820 | -891,180 | 57.458 | 100.0 | 100.0 | 58 | 76 | 0 | 85 | 40 | 85 |
-| challenger | advanced | 455,260 | -919,740 | 57.458 | 100.0 | 100.0 | 57 | 76 | 0 | 85 | 40 | 83 |
+| turnaround | beginner | 5,047,193 | -1,077,807 | 52.490 | 59.663 | 100.0 | 65 | 70 | 39 | 85 | 41 | 94 |
+| turnaround | intermediate | 5,042,729 | -1,082,271 | 52.490 | 59.663 | 100.0 | 65 | 70 | 39 | 85 | 41 | 94 |
+| turnaround | advanced | 5,037,800 | -1,087,200 | 52.490 | 59.663 | 100.0 | 65 | 70 | 39 | 85 | 41 | 94 |
+| hyper-growth | beginner | 1,848,969 | -476,031 | 47.124 | 96.200 | 88.030 | 67 | 82 | 39 | 85 | 39 | 90 |
+| hyper-growth | intermediate | 1,772,969 | -552,031 | 47.124 | 96.200 | 88.030 | 67 | 81 | 39 | 85 | 40 | 90 |
+| hyper-growth | advanced | 1,692,100 | -632,900 | 47.124 | 96.200 | 88.030 | 67 | 80 | 39 | 85 | 40 | 92 |
+| challenger | beginner | 509,020 | -865,980 | 46.728 | 100.0 | 86.981 | 66 | 77 | 39 | 85 | 40 | 86 |
+| challenger | intermediate | 483,820 | -891,180 | 46.728 | 100.0 | 86.981 | 66 | 77 | 39 | 85 | 40 | 85 |
+| challenger | advanced | 455,260 | -919,740 | 46.728 | 100.0 | 86.981 | 65 | 76 | 39 | 85 | 40 | 83 |
 
 ## Guardrails in this phase
 
@@ -42,8 +42,8 @@ This baseline locks deterministic outcomes for a representative four-quarter tac
    - this document, and
    - the inline snapshot baseline in tests.
 
-## Noted baseline issues to address in A2
+## Noted baseline issues to continue addressing in A2
 
-- Efficiency ring is `0` across all nine runs (indicates poor calibration of efficiency normalization).
-- Market share / awareness / satisfaction are clipping near upper bounds too quickly for this plan (reduced discriminatory power).
-- Overall score spread is narrow (`57–60`) despite large scenario and P&L differences.
+- Market share and awareness still converge into relatively tight bands across scenarios (limited differentiation for strategy quality).
+- Satisfaction still clips to `100` in challenger runs under this tactic plan.
+- Overall score spread is improved but still narrow (`65–67`) relative to large P&L deltas.
